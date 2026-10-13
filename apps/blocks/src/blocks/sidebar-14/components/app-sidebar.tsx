@@ -1,0 +1,204 @@
+import { css } from "@kirana-style/core"
+import * as React from "react"
+
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarRail,
+} from "@workspace/ui/components/sidebar"
+import { fontWeight } from "@workspace/ui/tokens/typography"
+
+const styles = {
+  link: css({
+    fontWeight: fontWeight.medium,
+  }),
+}
+
+// This is sample data.
+const data = {
+  navMain: [
+    {
+      title: "Getting Started",
+      url: "#",
+      items: [
+        {
+          title: "Installation",
+          url: "#",
+        },
+        {
+          title: "Project Structure",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Build Your Application",
+      url: "#",
+      items: [
+        {
+          title: "Routing",
+          url: "#",
+        },
+        {
+          title: "Data Fetching",
+          url: "#",
+          isActive: true,
+        },
+        {
+          title: "Rendering",
+          url: "#",
+        },
+        {
+          title: "Caching",
+          url: "#",
+        },
+        {
+          title: "Styling",
+          url: "#",
+        },
+        {
+          title: "Optimizing",
+          url: "#",
+        },
+        {
+          title: "Configuring",
+          url: "#",
+        },
+        {
+          title: "Testing",
+          url: "#",
+        },
+        {
+          title: "Authentication",
+          url: "#",
+        },
+        {
+          title: "Deploying",
+          url: "#",
+        },
+        {
+          title: "Upgrading",
+          url: "#",
+        },
+        {
+          title: "Examples",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "API Reference",
+      url: "#",
+      items: [
+        {
+          title: "Components",
+          url: "#",
+        },
+        {
+          title: "File Conventions",
+          url: "#",
+        },
+        {
+          title: "Functions",
+          url: "#",
+        },
+        {
+          title: "next.config.js Options",
+          url: "#",
+        },
+        {
+          title: "CLI",
+          url: "#",
+        },
+        {
+          title: "Edge Runtime",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Architecture",
+      url: "#",
+      items: [
+        {
+          title: "Accessibility",
+          url: "#",
+        },
+        {
+          title: "Fast Refresh",
+          url: "#",
+        },
+        {
+          title: "Next.js Compiler",
+          url: "#",
+        },
+        {
+          title: "Supported Browsers",
+          url: "#",
+        },
+        {
+          title: "Turbopack",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Community",
+      url: "#",
+      items: [
+        {
+          title: "Contribution Guide",
+          url: "#",
+        },
+      ],
+    },
+  ],
+}
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar {...props}>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Table of Contents</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {data.navMain.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    render={<a href={item.url} sx={styles.link} />}
+                  >
+                    {item.title}
+                  </SidebarMenuButton>
+                  {item.items?.length ? (
+                    <SidebarMenuSub>
+                      {item.items.map((child) => (
+                        <SidebarMenuSubItem key={child.title}>
+                          <SidebarMenuSubButton
+                            isActive={child.isActive}
+                            render={<a href={child.url} />}
+                          >
+                            {child.title}
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  ) : null}
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarRail />
+    </Sidebar>
+  )
+}

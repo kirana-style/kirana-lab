@@ -1,0 +1,37 @@
+{
+  "name": "blocks",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite dev --port 3001",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/modifiers": "^9.0.0",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@hugeicons/core-free-icons": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "@tanstack/react-table": "^9.2.6",
+    "@workspace/shell": "workspace:*",
+    "@workspace/ui": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-qr-code": "^2.2.0",
+    "recharts": "catalog:",
+    "zod": "^4.6.5",
+    "@kirana-style/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@workspace/vite-config": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "web",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite dev --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hugeicons/core-free-icons": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "@workspace/ui": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@kirana-style/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@workspace/vite-config": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

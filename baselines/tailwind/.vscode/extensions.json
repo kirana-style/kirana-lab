@@ -1,0 +1,21 @@
+{
+  "recommendations": [
+    // Linting and formatting (oxlint + oxfmt)
+    "oxc.oxc-vscode",
+
+    // Tailwind CSS v4
+    "bradlc.vscode-tailwindcss"
+
+    // TypeScript / React
+    // "ms-vscode.vscode-typescript-next",
+
+    // Bun runtime support
+    // "oven.bun-vscode"
+  ],
+  "unwantedRecommendations": [
+    // Replaced by oxfmt and oxlint — leaving these installed means two
+    // formatters fighting over the same files on save.
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint"
+  ]
+}

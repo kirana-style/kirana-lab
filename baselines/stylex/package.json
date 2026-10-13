@@ -1,0 +1,61 @@
+{
+  "name": "baseline-stylex",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:local": "bun --env-file=.env turbo run dev",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check:stylex": "bun scripts/check-stylex.ts",
+    "check": "bun run lint && bun run format:check && bun run typecheck && bun run check:stylex",
+    "deps:check": "bun outdated --filter='*'",
+    "deps:update": "bun update --recursive",
+    "deps:update:latest": "bun update --recursive --latest",
+    "deps:update:interactive": "bun update --recursive --interactive",
+    "clean": "rm -rf .turbo node_modules/.cache/turbo",
+    "build:clean": "bun run clean && bun pm cache rm && turbo run build"
+  },
+  "devDependencies": {
+    "@stylexjs/eslint-plugin": "0.19.0",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
+    "turbo": "^2.10.13",
+    "typescript": "catalog:"
+  },
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "trustedDependencies": [
+    "esbuild",
+    "lightningcss"
+  ],
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "@hugeicons/core-free-icons": "^4.3.3",
+      "@stylexjs/stylex": "0.19.0",
+      "@tanstack/react-router": "^1.170.36",
+      "@tanstack/react-start": "^1.168.54",
+      "@types/react": "^19.3.0",
+      "@types/react-dom": "^19.3.0",
+      "input-otp": "^1.5.0",
+      "react": "^19.3.0",
+      "react-day-picker": "^10.0.1",
+      "react-dom": "^19.3.0",
+      "react-resizable-panels": "^4.12.4",
+      "recharts": "^3.10.1",
+      "typescript": "^7.0.2",
+      "vite": "^8.3.0"
+    }
+  }
+}

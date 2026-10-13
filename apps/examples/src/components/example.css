@@ -1,0 +1,14 @@
+/*
+ * The one rule the Example card cannot express as a component style: a child
+ * `div` with no width of its own stretches to the card's width. The original
+ * wrote it as `*:[div:not([class*='w-'])]:w-full` on the card, which reads class
+ * names — and Kirana's are hashed.
+ *
+ * In the base layer, below every Kirana rule, so a child that sets any width
+ * wins: "unless it has a width class".
+ */
+@layer base {
+  [data-slot="example-content"] > div {
+    width: 100%;
+  }
+}

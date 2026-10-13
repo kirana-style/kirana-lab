@@ -1,0 +1,96 @@
+import { css } from "@kirana-style/core"
+import { Area, AreaChart } from "recharts"
+
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@workspace/ui/components/chart"
+import type { ChartConfig } from "@workspace/ui/components/chart"
+import { ctx } from "@workspace/ui/theme/context"
+import { theme } from "@workspace/ui/theme/semantic"
+
+const styles = {
+  card: css({
+    marginInlineStart: "auto",
+    marginInlineEnd: "auto",
+    width: "100%",
+    maxWidth: "24rem",
+    // The card's own bottom padding is restated: an sx value replaces it whole.
+    paddingBottom: {
+      base: ctx.cardSpacing,
+      ':has([data-slot="card-footer"])': 0,
+      '[data-size="sm"]': 0,
+    },
+  }),
+  chartContainer: css({
+    aspectRatio: "1/0.35",
+  }),
+}
+
+// Monthly visitor data for the area chart.
+const chartData = [
+  { month: "January", visitors: 186 },
+  { month: "February", visitors: 305 },
+  { month: "March", visitors: 237 },
+  { month: "April", visitors: 73 },
+  { month: "May", visitors: 209 },
+  { month: "June", visitors: 214 },
+]
+
+// Chart configuration for the visitors dataset.
+const chartConfig = {
+  visitors: {
+    label: "Visitors",
+    color: theme.chart1,
+  },
+} satisfies ChartConfig
+
+export function AnalyticsCard() {
+  return (
+    <Card sx={styles.card} size="sm">
+      <CardHeader>
+        <CardTitle>Analytics</CardTitle>
+        <CardDescription>
+          418.2K Visitors <Badge>+10%</Badge>
+        </CardDescription>
+        <CardAction>
+          <Button variant="outline" size="sm">
+            View Analytics
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <ChartContainer config={chartConfig} sx={styles.chartContainer}>
+        <AreaChart
+          accessibilityLayer
+          data={chartData}
+          margin={{
+            left: 0,
+            right: 0,
+          }}
+        >
+          <ChartTooltip
+            cursor={false}
+            content={<ChartTooltipContent indicator="line" hideLabel />}
+          />
+          <Area
+            dataKey="visitors"
+            type="linear"
+            fill="var(--color-visitors)"
+            fillOpacity={0.4}
+            stroke="var(--color-visitors)"
+          />
+        </AreaChart>
+      </ChartContainer>
+    </Card>
+  )
+}

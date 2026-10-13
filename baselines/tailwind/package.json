@@ -1,0 +1,43 @@
+{
+  "name": "baseline-tailwind",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:local": "bun --env-file=.env turbo run dev",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check": "bun run lint && bun run format:check && bun run typecheck",
+    "deps:check": "bun outdated --filter='*'",
+    "deps:update": "bun update --recursive",
+    "deps:update:latest": "bun update --recursive --latest",
+    "deps:update:interactive": "bun update --recursive --interactive",
+    "clean": "rm -rf .turbo node_modules/.cache/turbo",
+    "build:clean": "bun run clean && bun pm cache rm && turbo run build"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
+    "turbo": "^2.10.12",
+    "typescript": "^7.0.2"
+  },
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss"
+    ]
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

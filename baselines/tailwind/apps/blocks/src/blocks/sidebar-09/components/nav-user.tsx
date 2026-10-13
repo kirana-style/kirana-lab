@@ -1,0 +1,142 @@
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import {
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@workspace/ui/components/sidebar"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  CheckmarkBadgeIcon,
+  CreditCardIcon,
+  LogoutIcon,
+  NotificationIcon,
+  SparklesIcon,
+  UnfoldMoreIcon,
+} from "@hugeicons/core-free-icons"
+
+export function NavUser({
+  user,
+}: {
+  user: {
+    name: string
+    email: string
+    avatar: string
+  }
+}) {
+  const { isMobile } = useSidebar()
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <SidebarMenuButton
+                size="lg"
+                className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground md:h-8 md:p-0"
+              />
+            }
+          >
+            <Avatar className="h-8 w-8 rounded-lg">
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+            </Avatar>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{user.name}</span>
+              <span className="truncate text-xs">{user.email}</span>
+            </div>
+            <HugeiconsIcon
+              strokeWidth={2}
+
+              icon={UnfoldMoreIcon}
+
+              className="ml-auto size-4"
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="min-w-56 rounded-lg"
+            side={isMobile ? "bottom" : "right"}
+            align="end"
+            sideOffset={4}
+          >
+            {/* Base UI throws unless a menu label sits inside a group. */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{user.name}</span>
+                    <span className="truncate text-xs">{user.email}</span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem>
+                <HugeiconsIcon
+                  strokeWidth={2}
+
+                  icon={SparklesIcon}
+                />
+                Upgrade to Pro
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem>
+                <HugeiconsIcon
+                  strokeWidth={2}
+
+                  icon={CheckmarkBadgeIcon}
+                />
+                Account
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <HugeiconsIcon
+                  strokeWidth={2}
+
+                  icon={CreditCardIcon}
+                />
+                Billing
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <HugeiconsIcon
+                  strokeWidth={2}
+
+                  icon={NotificationIcon}
+                />
+                Notifications
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <HugeiconsIcon
+                strokeWidth={2}
+
+                icon={LogoutIcon}
+              />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}

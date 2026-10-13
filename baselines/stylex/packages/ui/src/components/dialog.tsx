@@ -1,0 +1,207 @@
+import * as stylex from "@stylexjs/stylex"
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
+
+import type { Sx } from "../lib/sx"
+import { overlayStyles } from "../recipes/overlay"
+import { Button } from "./button"
+import { Icon } from "../primitives/icon"
+import { VisuallyHidden } from "../primitives/visually-hidden"
+import { dialogContentMarker } from "../theme/markers.stylex"
+import { alpha, radius, theme } from "../theme/semantic.stylex"
+import { blur } from "../tokens/blur.stylex"
+import { breakpoint } from "../tokens/breakpoints.stylex"
+import { spacing } from "../tokens/spacing.stylex"
+import { fontFamily, fontSize, lineHeight } from "../tokens/typography.stylex"
+import { zIndex } from "../tokens/z-index.stylex"
+
+const styles = stylex.create({
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    isolation: "isolate",
+    zIndex: zIndex.overlay,
+    backgroundColor: "rgb(0 0 0 / 0.1)",
+    // Only blurs where the browser can do it cheaply. Nested in the property
+    // rather than written as a top-level at-rule, which StyleX treats as an
+    // antipattern.
+    backdropFilter: {
+      default: null,
+      "@supports (backdrop-filter: blur(1px))": `blur(${blur.xs})`,
+    },
+  },
+  content: {
+    position: "fixed",
+    insetInlineStart: "50%",
+    top: "50%",
+    zIndex: zIndex.popover,
+    display: "grid",
+    width: "100%",
+    maxWidth: { default: "calc(100% - 2rem)", [breakpoint.sm]: "24rem" },
+    // `translate` follows writing direction, so this one value replaces the
+    // original's `-translate-x-1/2` plus its `rtl:translate-x-1/2` override.
+    translate: "-50% -50%",
+    gap: spacing[4],
+    borderRadius: radius.xl,
+    backgroundColor: theme.popover,
+    padding: spacing[4],
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    color: theme.popoverForeground,
+    boxShadow: `0 0 0 1px ${alpha.foreground10}`,
+    outlineStyle: "none",
+  },
+  close: { position: "absolute", insetInlineEnd: spacing[2], top: spacing[2] },
+  header: { display: "flex", flexDirection: "column", gap: spacing[2] },
+  footer: {
+    marginInline: `calc(${spacing[4]} * -1)`,
+    marginBottom: `calc(${spacing[4]} * -1)`,
+    display: "flex",
+    flexDirection: { default: "column-reverse", [breakpoint.sm]: "row" },
+    justifyContent: { default: null, [breakpoint.sm]: "flex-end" },
+    gap: spacing[2],
+    borderEndStartRadius: radius.xl,
+    borderEndEndRadius: radius.xl,
+    borderTopWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopColor: theme.border,
+    backgroundColor: alpha.muted50,
+    padding: spacing[4],
+  },
+  title: {
+    fontFamily: fontFamily.heading,
+    fontSize: fontSize.base,
+    lineHeight: 1,
+    fontWeight: 500,
+  },
+  description: { fontSize: fontSize.sm, color: theme.mutedForeground },
+})
+
+function Dialog({ ...props }: DialogPrimitive.Root.Props) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+}
+
+function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
+  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+}
+
+function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
+  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+}
+
+function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
+  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+}
+
+function DialogOverlay({
+  sx,
+  ...props
+}: Omit<DialogPrimitive.Backdrop.Props, "className"> & { sx?: Sx }) {
+  return (
+    <DialogPrimitive.Backdrop
+      data-slot="dialog-overlay"
+      {...props}
+      {...stylex.props(overlayStyles.backdrop, styles.overlay, sx)}
+    />
+  )
+}
+
+function DialogContent({
+  sx,
+  children,
+  showCloseButton = true,
+  ...props
+}: Omit<DialogPrimitive.Popup.Props, "className"> & {
+  showCloseButton?: boolean
+  sx?: Sx
+}) {
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Popup
+        data-slot="dialog-content"
+        {...props}
+        {...stylex.props(
+          dialogContentMarker,
+          overlayStyles.modal,
+          styles.content,
+          sx
+        )}
+      >
+        {children}
+        {showCloseButton && (
+          <DialogPrimitive.Close
+            data-slot="dialog-close"
+            render={<Button variant="ghost" size="icon-sm" sx={styles.close} />}
+          >
+            <Icon icon={Cancel01Icon} strokeWidth={2} />
+            <VisuallyHidden>Close</VisuallyHidden>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Popup>
+    </DialogPortal>
+  )
+}
+
+type El = Omit<React.ComponentProps<"div">, "className"> & { sx?: Sx }
+
+function DialogHeader({ sx, ...props }: El) {
+  return <div data-slot="dialog-header" {...props} sx={[styles.header, sx]} />
+}
+
+function DialogFooter({
+  sx,
+  showCloseButton = false,
+  children,
+  ...props
+}: El & { showCloseButton?: boolean }) {
+  return (
+    <div data-slot="dialog-footer" {...props} sx={[styles.footer, sx]}>
+      {children}
+      {showCloseButton && (
+        <DialogPrimitive.Close render={<Button variant="outline" />}>
+          Close
+        </DialogPrimitive.Close>
+      )}
+    </div>
+  )
+}
+
+function DialogTitle({
+  sx,
+  ...props
+}: Omit<DialogPrimitive.Title.Props, "className"> & { sx?: Sx }) {
+  return (
+    <DialogPrimitive.Title
+      data-slot="dialog-title"
+      {...props}
+      {...stylex.props(styles.title, sx)}
+    />
+  )
+}
+
+function DialogDescription({
+  sx,
+  ...props
+}: Omit<DialogPrimitive.Description.Props, "className"> & { sx?: Sx }) {
+  return (
+    <DialogPrimitive.Description
+      data-slot="dialog-description"
+      {...props}
+      {...stylex.props(styles.description, sx)}
+    />
+  )
+}
+
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+}

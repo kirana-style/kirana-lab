@@ -1,0 +1,64 @@
+{
+  // ─── Formatting and linting (oxc) ────────────────────────────────────────────
+  // oxfmt replaces Prettier and oxlint replaces ESLint; both are driven by the
+  // Oxc extension reading .oxfmtrc.json / .oxlintrc.json at the repo root.
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "[typescript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[javascript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[javascriptreact]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[json]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[jsonc]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[css]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "oxc.fmt.experimental": true,
+  // A single config at the repo root covers every workspace, so the server does
+  // not need the per-package working directories ESLint required.
+  "oxc.lint.run": "onType",
+
+  // ─── TypeScript ───────────────────────────────────────────────────────────────
+  // Use the workspace TypeScript version instead of VS Code's bundled one.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  // Align quote style with .oxfmtrc.json (double quotes, no semi)
+  "typescript.preferences.quoteStyle": "double",
+  "javascript.preferences.quoteStyle": "double",
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+
+  // ─── StyleX ───────────────────────────────────────────────────────────────────
+  // There is no editor extension to configure: styles are ordinary typed objects,
+  // so token autocomplete and "go to definition" come from TypeScript itself.
+  // Variable definitions live in `.stylex.ts` files, which are plain TypeScript.
+
+  // ─── Read-only generated files ────────────────────────────────────────────────
+  "files.readonlyInclude": {
+    "**/routeTree.gen.ts": true,
+    "**/.tanstack/**/*": true,
+    "**/worker-configuration.d.ts": true,
+    "bun.lock": true
+  },
+
+  // ─── File watcher / search excludes ──────────────────────────────────────────
+  "files.watcherExclude": {
+    "**/.output/**": true,
+    "**/.nitro/**": true,
+    "**/.vinxi/**": true,
+    "**/.turbo/**": true,
+    "**/node_modules/**": true,
+    "**/routeTree.gen.ts": true,
+    "**/.tanstack/**": true
+  },
+  "search.exclude": {
+    "**/.output": true,
+    "**/.nitro": true,
+    "**/.vinxi": true,
+    "**/.turbo": true,
+    "**/node_modules": true,
+    "**/routeTree.gen.ts": true,
+    "**/.tanstack": true,
+    "bun.lock": true
+  },
+
+  // ─── Misc ─────────────────────────────────────────────────────────────────────
+  "files.eol": "\n"
+}

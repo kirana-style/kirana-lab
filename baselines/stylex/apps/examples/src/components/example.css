@@ -1,0 +1,13 @@
+/*
+ * The one rule the Example card cannot express in StyleX: a child `div` with no
+ * width of its own stretches to the card's width. The original wrote it as
+ * `*:[div:not([class*='w-'])]:w-full` on the card.
+ *
+ * In the base layer, so a child that sets any width through StyleX wins — the
+ * StyleX equivalent of "unless it has a width class".
+ */
+@layer base {
+  [data-slot="example-content"] > div {
+    width: 100%;
+  }
+}
