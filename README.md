@@ -33,11 +33,9 @@ bun install                                       # the Kirana corpus
 
 vp run build                                      # all three implementations, every app
 vp run check                                      # lint, types, shared versions, lockfiles
+vp run test                                       # the harness's statistics and report
 
-bun run bench kirana=$PWD stylex=$PWD/baselines/stylex tailwind=$PWD/baselines/tailwind \
-  --apps web,blocks,examples --rounds 10
-bun run bench:runtime --serve --rounds 20 --throttle 4,6
-bun run conformance --app web --serve
+bun run bench                                     # a whole session: results/<version>/<date>/
 ```
 
 To measure another Kirana release: `bun run use-kirana 0.2.1` (or `latest`), then `bun install`.
@@ -46,7 +44,9 @@ When a shared dependency moves, change it in `versions.json`, then `bun run vers
 `bun install` in all three workspaces. `bun run fairness` lists anything the three lockfiles still
 resolve differently.
 
-The harness's own guides: [benchmarks](packages/harness/bench/README.md) and
+`bun run bench` builds every app cold for 10 interleaved rounds, checks conformance, measures the
+browser, and writes `results.json` (every raw sample) and `report.md`. The harness's own guides:
+[benchmarks](packages/harness/bench/README.md) and
 [conformance](packages/harness/conformance/README.md).
 
 ## License

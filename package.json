@@ -7,8 +7,9 @@
     "use-kirana": "bun scripts/use-kirana.ts",
     "versions": "bun scripts/sync-versions.ts",
     "fairness": "bun scripts/fairness.ts",
-    "bench": "bun run --cwd packages/harness bench",
-    "bench:runtime": "bun run --cwd packages/harness bench:runtime",
+    "bench": "bun run --cwd packages/harness session",
+    "bench:builds": "bun run --cwd packages/harness builds",
+    "bench:runtime": "bun run --cwd packages/harness runtime",
     "conformance": "bun run --cwd packages/harness conformance"
   },
   "devDependencies": {

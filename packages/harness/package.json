@@ -5,9 +5,11 @@
   "private": true,
   "description": "The lab's measuring tools: the build and runtime benchmarks, and the conformance harness that compares the three implementations' computed styles.",
   "scripts": {
-    "bench": "bun bench/slice.ts",
-    "bench:runtime": "bun bench/runtime.ts",
-    "conformance": "bun conformance/run.ts"
+    "session": "bun src/run.ts",
+    "builds": "bun bench/slice.ts",
+    "runtime": "bun bench/runtime.ts",
+    "conformance": "bun conformance/run.ts",
+    "test": "vp test run"
   },
   "dependencies": {
     "playwright": "catalog:"

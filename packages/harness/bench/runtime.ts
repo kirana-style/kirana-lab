@@ -2,7 +2,9 @@
  * E-07 / KRN-PERF-006 — what the stylesheet costs the browser, not the build.
  *
  *   bun bench/runtime.ts [--app web] [--route /] [--serve]
- *                        [--rounds 5] [--throttle 4,6] [--elements 6000]
+ *                        [--rounds 20] [--throttle 4,6] [--elements 6000] [--json out.json]
+ *
+ * `measureRuntime` does the same from another script (`src/run.ts`), returning every run's numbers.
  *
  * Build size and build time say nothing about the work a page does at runtime. A stylesheet of
  * atoms asks the browser to match more selectors per element than a stylesheet of composed classes;
@@ -27,48 +29,42 @@
  */
 import { spawn } from "node:child_process"
 import type { ChildProcess } from "node:child_process"
-import { appendFileSync, existsSync } from "node:fs"
+import { existsSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 import { chromium } from "playwright"
 import type { CDPSession, Page } from "playwright"
 
-const args = process.argv.slice(2)
-const option = (name: string, fallback: string) => {
-  const index = args.indexOf(`--${name}`)
-  return index < 0 ? fallback : (args[index + 1] ?? fallback)
-}
-
-const app = option("app", "web")
-const route = option("route", "/")
-const rounds = Number(option("rounds", "5"))
-const elements = Number(option("elements", "6000"))
-const throttles = option("throttle", "4,6").split(",").map(Number)
 const repository = path.resolve(
   new URL("..", import.meta.url).pathname,
   "../.."
 )
 
-/**
- * Extra builds to measure beside the three, as `--also label=/path/to/app`.
- *
- * A hypothesis about why one build is slower is only answered by measuring both in the *same*
- * interleaved run: absolute times move with whatever else the machine is doing, so two runs cannot
- * be compared, only the ratios within one. Point this at a copy of an app with one thing changed.
- */
-const extra = args
-  .map((argument, index) =>
-    argument === "--also" ? args[index + 1] : undefined
-  )
-  .filter((value): value is string => value !== undefined)
-  .map((value, index) => {
+export type RuntimeOptions = {
+  app?: string
+  route?: string
+  rounds?: number
+  elements?: number
+  throttles?: number[]
+  serve?: boolean
+  /**
+   * Extra builds to measure beside the three, as `label=/path/to/app`.
+   *
+   * A hypothesis about why one build is slower is only answered by measuring both in the *same*
+   * interleaved run: absolute times move with whatever else the machine is doing, so two runs
+   * cannot be compared, only the ratios within one. Point this at a copy of an app with one thing
+   * changed.
+   */
+  also?: string[]
+}
+
+function buildsFor(app: string, also: readonly string[]) {
+  const extra = also.map((value, index) => {
     const split = value.indexOf("=")
-    if (split < 0) {
-      console.error(
+    if (split < 0)
+      throw new Error(
         `--also wants label=directory, got ${JSON.stringify(value)}`
       )
-      process.exit(2)
-    }
     return [
       value.slice(0, split),
       {
@@ -77,35 +73,33 @@ const extra = args
       },
     ] as const
   })
-
-const builds = {
-  kirana: {
-    url: "http://localhost:3401",
-    directory: path.join(repository, "apps", app),
-  },
-  stylex: {
-    url: "http://localhost:3402",
-    directory: path.join(
-      path.resolve(repository, process.env.STYLEX_DIR ?? "baselines/stylex"),
-      "apps",
-      app
-    ),
-  },
-  tailwind: {
-    url: "http://localhost:3403",
-    directory: path.join(
-      path.resolve(
-        repository,
-        process.env.TAILWIND_DIR ?? "baselines/tailwind"
+  return {
+    kirana: {
+      url: "http://localhost:3401",
+      directory: path.join(repository, "apps", app),
+    },
+    stylex: {
+      url: "http://localhost:3402",
+      directory: path.join(
+        path.resolve(repository, process.env.STYLEX_DIR ?? "baselines/stylex"),
+        "apps",
+        app
       ),
-      "apps",
-      app
-    ),
-  },
-  ...Object.fromEntries(extra),
-} as Record<string, { url: string; directory: string }>
-
-type Name = string
+    },
+    tailwind: {
+      url: "http://localhost:3403",
+      directory: path.join(
+        path.resolve(
+          repository,
+          process.env.TAILWIND_DIR ?? "baselines/tailwind"
+        ),
+        "apps",
+        app
+      ),
+    },
+    ...Object.fromEntries(extra),
+  } as Record<string, { url: string; directory: string }>
+}
 
 function stop(servers: ChildProcess[]) {
   for (const server of servers) {
@@ -117,14 +111,15 @@ function stop(servers: ChildProcess[]) {
   }
 }
 
-async function serve(): Promise<ChildProcess[]> {
+async function serve(
+  builds: Record<string, { url: string; directory: string }>
+): Promise<ChildProcess[]> {
   const servers: ChildProcess[] = []
   for (const [name, build] of Object.entries(builds)) {
     if (!existsSync(path.join(build.directory, "dist"))) {
-      console.error(
-        `${name}: no build in ${build.directory}/dist — build it first`
+      throw new Error(
+        `${name}: no build in ${build.directory}/dist; build it first`
       )
-      process.exit(2)
     }
     servers.push(
       spawn(
@@ -147,9 +142,8 @@ async function serve(): Promise<ChildProcess[]> {
       ))
     ) {
       if (Date.now() > deadline) {
-        console.error(`${build.url} did not start within a minute`)
         stop(servers)
-        process.exit(2)
+        throw new Error(`${build.url} did not start within a minute`)
       }
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
@@ -324,128 +318,121 @@ async function measure(
   }
 }
 
-const quantile = (list: number[], q: number) => {
-  const sorted = [...list].sort((a, b) => a - b)
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))] ?? 0
+/** Every run's numbers for one build at one throttling rate. */
+export type RuntimeSamples = {
+  scheme: number[]
+  schemeRecalcs: number[]
+  hover: number[]
+  hoverRecalcs: number[]
+  layout: number[]
+  /** Each run's p95 frame time across its burst. */
+  framesP95: number[]
 }
-const median = (list: number[]) => quantile(list, 0.5)
 
-const servers = args.includes("--serve") ? await serve() : []
-const browser = await chromium.launch({
-  channel: process.env.KIRANA_CHROME_CHANNEL ?? "chrome",
-})
-const results: Record<number, Record<Name, Sample[]>> = {}
-const domSize: Record<Name, number> = {}
+export type RuntimeResults = {
+  app: string
+  route: string
+  chrome: string
+  /** Elements on the grown page, per build. */
+  elements: Record<string, number>
+  /** throttling rate → build → samples. */
+  samples: Record<number, Record<string, RuntimeSamples>>
+}
 
-try {
-  for (const rate of throttles) {
-    results[rate] = Object.fromEntries(
-      Object.keys(builds).map((name) => [name, []])
-    )
-    for (let round = 0; round < rounds; round++) {
-      // Interleaved: one round of each build before the next round of any.
-      for (const name of Object.keys(builds) as Name[]) {
-        const page = await browser.newPage({
-          viewport: { width: 1400, height: 900 },
-        })
-        const session = await page.context().newCDPSession(page)
-        await session.send("Performance.enable")
-        await page.goto(`${builds[name]!.url}${route}`, {
-          waitUntil: "networkidle",
-        })
-        const modes = await learnModeSwitch(page)
-        domSize[name] = await grow(page, elements)
-        await session.send("Emulation.setCPUThrottlingRate", { rate })
-        await page.waitForTimeout(300)
-        results[rate]![name]!.push(await measure(page, session, modes))
-        await session.send("Emulation.setCPUThrottlingRate", { rate: 1 })
-        await page.close()
+const p95 = (list: number[]) => {
+  const sorted = [...list].sort((a, b) => a - b)
+  return (
+    sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] ?? 0
+  )
+}
+
+export async function measureRuntime({
+  app = "web",
+  route = "/",
+  rounds = 20,
+  elements = 6000,
+  throttles = [4, 6],
+  serve: start = false,
+  also = [],
+}: RuntimeOptions = {}): Promise<RuntimeResults> {
+  const builds = buildsFor(app, also)
+  const servers = start ? await serve(builds) : []
+  const browser = await chromium.launch({
+    channel: process.env.KIRANA_CHROME_CHANNEL ?? "chrome",
+  })
+  const samples: Record<number, Record<string, RuntimeSamples>> = {}
+  const domSize: Record<string, number> = {}
+  try {
+    for (const rate of throttles) {
+      samples[rate] = Object.fromEntries(
+        Object.keys(builds).map((name) => [
+          name,
+          {
+            scheme: [],
+            schemeRecalcs: [],
+            hover: [],
+            hoverRecalcs: [],
+            layout: [],
+            framesP95: [],
+          },
+        ])
+      )
+      for (let round = 0; round < rounds; round++) {
+        // Interleaved: one run of each build before the next run of any.
+        for (const name of Object.keys(builds)) {
+          const page = await browser.newPage({
+            viewport: { width: 1400, height: 900 },
+          })
+          const session = await page.context().newCDPSession(page)
+          await session.send("Performance.enable")
+          await page.goto(`${builds[name]!.url}${route}`, {
+            waitUntil: "networkidle",
+          })
+          const modes = await learnModeSwitch(page)
+          domSize[name] = await grow(page, elements)
+          await session.send("Emulation.setCPUThrottlingRate", { rate })
+          await page.waitForTimeout(300)
+          const sample = await measure(page, session, modes)
+          const into = samples[rate]![name]!
+          into.scheme.push(sample.scheme)
+          into.schemeRecalcs.push(sample.schemeRecalcs)
+          into.hover.push(sample.state)
+          into.hoverRecalcs.push(sample.stateRecalcs)
+          into.layout.push(sample.layout)
+          into.framesP95.push(p95(sample.frames))
+          await session.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+          await page.close()
+        }
       }
     }
+    return { app, route, chrome: browser.version(), elements: domSize, samples }
+  } finally {
+    await browser.close()
+    stop(servers)
   }
-} finally {
-  await browser.close()
-  stop(servers)
 }
 
-const MEDALS = ["🥇", "🥈", "🥉"]
-
-/**
- * The same shape `slice.ts` prints: a Markdown table per section with every column ranked, so a job
- * summary reads the same way whichever benchmark produced it. Lowest wins; ties share a medal.
- */
-function table(title: string, samples: Record<Name, Sample[]>): string {
-  const entries = Object.keys(builds) as Name[]
-  const columns: [
-    string,
-    (list: Sample[]) => number,
-    (value: number) => string,
-  ][] = [
-    [
-      "Colour scheme",
-      (list) => median(list.map((s) => s.scheme)),
-      (v) => `${v.toFixed(1)} ms`,
-    ],
-    [
-      "Recalcs",
-      (list) => median(list.map((s) => s.schemeRecalcs)),
-      (v) => v.toFixed(0),
-    ],
-    [
-      "Hover",
-      (list) => median(list.map((s) => s.state)),
-      (v) => `${v.toFixed(1)} ms`,
-    ],
-    [
-      "Recalcs ",
-      (list) => median(list.map((s) => s.stateRecalcs)),
-      (v) => v.toFixed(0),
-    ],
-    [
-      "Layout",
-      (list) => median(list.map((s) => s.layout)),
-      (v) => `${v.toFixed(1)} ms`,
-    ],
-    [
-      "Frame p95",
-      (list) =>
-        quantile(
-          list.flatMap((s) => s.frames),
-          0.95
-        ),
-      (v) => `${v.toFixed(1)} ms`,
-    ],
-  ]
-  const cells = columns.map(([, metric, format]) => {
-    const values = entries.map((name) => metric(samples[name] ?? []))
-    const shown = values.map(format)
-    const ranking = [...new Set(values)].sort((a, b) => a - b)
-    return values.map((value, index) => {
-      const medal = MEDALS[ranking.indexOf(value)]
-      return medal ? `${medal} ${shown[index]}` : shown[index]!
-    })
+if (import.meta.main) {
+  const args = process.argv.slice(2)
+  const option = (name: string, fallback: string) => {
+    const index = args.indexOf(`--${name}`)
+    return index < 0 ? fallback : (args[index + 1] ?? fallback)
+  }
+  const results = await measureRuntime({
+    app: option("app", "web"),
+    route: option("route", "/"),
+    rounds: Number(option("rounds", "20")),
+    elements: Number(option("elements", "6000")),
+    throttles: option("throttle", "4,6").split(",").map(Number),
+    serve: args.includes("--serve"),
+    also: args
+      .map((argument, index) =>
+        argument === "--also" ? args[index + 1] : undefined
+      )
+      .filter((value): value is string => value !== undefined),
   })
-  return [
-    `### ${title} (advisory, ${rounds} rounds, median)`,
-    "",
-    `| Implementation | ${columns.map(([name]) => name.trim()).join(" | ")} |`,
-    `| --- | ${columns.map(() => "---").join(" | ")} |`,
-    ...entries.map(
-      (name, row) =>
-        `| ${name} | ${cells.map((column) => column[row]).join(" | ")} |`
-    ),
-    "",
-  ].join("\n")
-}
-
-const sections = [
-  `Runtime on \`${app}${route}\`, grown to about ${domSize.kirana} elements ` +
-    `(${(Object.keys(builds) as Name[]).map((n) => `${n} ${domSize[n]}`).join(", ")}).`,
-  "",
-  ...throttles.map((rate) => table(`CPU throttling ${rate}×`, results[rate]!)),
-]
-const text = sections.join("\n")
-console.log(text)
-if (process.env.GITHUB_STEP_SUMMARY) {
-  appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${text}\n`)
+  const out = option("json", "")
+  const text = `${JSON.stringify(results, null, 2)}\n`
+  if (out) writeFileSync(out, text)
+  else console.log(text)
 }
