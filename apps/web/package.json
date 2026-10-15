@@ -16,7 +16,7 @@
     "@workspace/ui": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "@kirana-style/core": "workspace:*"
+    "@kirana-style/core": "catalog:"
   },
   "devDependencies": {
     "@types/react": "catalog:",

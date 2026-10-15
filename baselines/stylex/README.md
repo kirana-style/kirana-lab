@@ -97,10 +97,12 @@ import { ThemeProvider, useTheme } from "@workspace/ui/theme/theme-provider"
 
 ## Scripts
 
+This baseline is built and measured from the lab's root (`vp run build:stylex`, then the
+harness); see the root README. On its own:
+
 ```bash
-bun dev          # web on :3000, blocks on :3001, examples on :3002
-bun run build    # production build of all three
-bun run check    # lint, format, types, and the StyleX static checks
+bun run --cwd apps/web dev     # web on :3000; blocks on :3001, examples on :3002 likewise
+bun run check:stylex           # the StyleX static checks
 ```
 
 ## Blocks and examples

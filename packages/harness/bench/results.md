@@ -1,7 +1,11 @@
-# Benchmark results
+# Benchmark results (history)
+
+> These are the numbers from before this lab measured published releases: one developer machine,
+> with the compiler built from source. The commands below are as they were run then. Current
+> results come from CI, one folder per release in [`results/`](../../../results/).
 
 Advisory numbers under the claims policy of
-[14-benchmark-methodology](../../../products/kirana/14-benchmark-methodology.md): one developer machine,
+[the methodology](../../../METHODOLOGY.md): one developer machine,
 not a dedicated benchmark host. They exist so each change can be compared with the last; they are not
 published claims.
 

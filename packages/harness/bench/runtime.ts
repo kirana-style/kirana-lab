@@ -86,10 +86,7 @@ const builds = {
   stylex: {
     url: "http://localhost:3402",
     directory: path.join(
-      path.resolve(
-        repository,
-        process.env.STYLEX_DIR ?? "baselines/stylex"
-      ),
+      path.resolve(repository, process.env.STYLEX_DIR ?? "baselines/stylex"),
       "apps",
       app
     ),

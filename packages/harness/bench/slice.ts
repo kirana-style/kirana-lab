@@ -1,6 +1,6 @@
 /**
  * Advisory benchmark of the ported apps (E-01 size, E-02 build time), reported under the claims
- * policy of products/kirana/14-benchmark-methodology.md: hosted CI numbers are advisory.
+ * policy in METHODOLOGY.md: hosted CI numbers are advisory.
  *
  *   bun bench/slice.ts <label>=<app directory> [<label>=<app directory> …] [--rounds 3]
  *   bun bench/slice.ts <label>=<repository> […] --apps web,blocks,examples [--rounds 3]
@@ -8,9 +8,9 @@
  * Only apps every implementation has may be measured: `apps/docs` exists in this repository and on
  * neither baseline branch, so it is excluded from the corpus and the script refuses to measure it.
  *
- * Directories are resolved from `packages/kirana`. With `--apps`, each label names a repository
+ * Directories are resolved from `packages/harness`. With `--apps`, each label names a repository
  * checkout and every listed app under its `apps/` is measured, followed by a corpus total. Each app
- * directory must already have its dependencies installed (and, for Kirana, the native engine built).
+ * directory must already have its dependencies installed.
  * Every build runs `vite build` `--rounds` times, interleaved with the others; the median wall time,
  * the client CSS and the client JavaScript (raw and gzip -9, each file gzipped on its own, as a
  * browser receives them) are printed as Markdown and appended to $GITHUB_STEP_SUMMARY when it is set.

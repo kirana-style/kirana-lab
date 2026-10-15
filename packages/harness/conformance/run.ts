@@ -1,6 +1,6 @@
 /**
  * Runs the conformance comparisons for one app: the Kirana build against the StyleX port and against
- * the Tailwind original (packages/kirana/conformance/README.md).
+ * the Tailwind original (packages/harness/conformance/README.md).
  *
  *   bun conformance/run.ts [--app web|blocks|examples] [--serve] [--shard 1/3] [--states] [--motion]
  *
@@ -48,10 +48,7 @@ const builds = {
   stylex: {
     url: process.env.STYLEX_URL ?? `http://localhost:${3301 + 10 * offset}`,
     directory: path.join(
-      path.resolve(
-        repository,
-        process.env.STYLEX_DIR ?? "baselines/stylex"
-      ),
+      path.resolve(repository, process.env.STYLEX_DIR ?? "baselines/stylex"),
       "apps",
       app
     ),

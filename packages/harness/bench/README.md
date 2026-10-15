@@ -1,7 +1,7 @@
 # Benchmarks
 
 Two benchmarks, measuring two different things, both advisory under the claims policy in
-[14-benchmark-methodology](../../../products/kirana/14-benchmark-methodology.md).
+[the methodology](../../../METHODOLOGY.md).
 
 | Script                       | Question                                          |
 | ---------------------------- | ------------------------------------------------- |
@@ -13,7 +13,7 @@ Results are kept in [`results.md`](results.md).
 ## The build benchmark
 
 ```bash
-bun run kirana:bench kirana=$PWD stylex=$PWD/baselines/stylex tailwind=$PWD/baselines/tailwind \
+bun run bench kirana=$PWD stylex=$PWD/baselines/stylex tailwind=$PWD/baselines/tailwind \
   --apps web,blocks,examples --rounds 5
 ```
 
@@ -24,7 +24,7 @@ against a smaller one (fairness rule 9).
 ## The runtime benchmark (E-07, KRN-PERF-006)
 
 ```bash
-bun run kirana:bench:runtime -- --serve --rounds 5 --throttle 4,6
+bun run bench:runtime -- --serve --rounds 5 --throttle 4,6
 ```
 
 Build size says nothing about the work a page does when someone uses it. A stylesheet of atoms asks
@@ -74,5 +74,5 @@ interleaved rounds:
 
 ```bash
 cp -r apps/web /tmp/web-variant        # change one thing in /tmp/web-variant/dist
-bun run kirana:bench:runtime -- --serve --also variant=/tmp/web-variant
+bun run bench:runtime -- --serve --also variant=/tmp/web-variant
 ```

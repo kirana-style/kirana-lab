@@ -3,34 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "dev:local": "bun --env-file=.env turbo run dev",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "check:stylex": "bun scripts/check-stylex.ts",
-    "check": "bun run lint && bun run format:check && bun run typecheck && bun run check:stylex",
-    "deps:check": "bun outdated --filter='*'",
-    "deps:update": "bun update --recursive",
-    "deps:update:latest": "bun update --recursive --latest",
-    "deps:update:interactive": "bun update --recursive --interactive",
-    "clean": "rm -rf .turbo node_modules/.cache/turbo",
-    "build:clean": "bun run clean && bun pm cache rm && turbo run build"
+    "check:stylex": "bun scripts/check-stylex.ts"
   },
   "devDependencies": {
-    "@stylexjs/eslint-plugin": "0.19.0",
-    "oxfmt": "^0.68.0",
-    "oxlint": "^1.83.0",
-    "turbo": "^2.10.13",
     "typescript": "catalog:"
   },
-  "packageManager": "bun@1.4.2",
+  "packageManager": "bun@1.4.3",
   "engines": {
-    "node": ">=20"
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
   },
   "trustedDependencies": [
     "esbuild",
@@ -42,20 +22,39 @@
       "packages/*"
     ],
     "catalog": {
-      "@hugeicons/core-free-icons": "^4.3.3",
-      "@stylexjs/stylex": "0.19.0",
-      "@tanstack/react-router": "^1.170.36",
-      "@tanstack/react-start": "^1.168.54",
-      "@types/react": "^19.3.0",
-      "@types/react-dom": "^19.3.0",
-      "input-otp": "^1.5.0",
-      "react": "^19.3.0",
-      "react-day-picker": "^10.0.1",
-      "react-dom": "^19.3.0",
-      "react-resizable-panels": "^4.12.4",
-      "recharts": "^3.10.1",
-      "typescript": "^7.0.2",
-      "vite": "^8.3.0"
+      "@base-ui/react": "1.9.0",
+      "@dnd-kit/core": "6.3.1",
+      "@dnd-kit/modifiers": "9.0.0",
+      "@dnd-kit/sortable": "10.0.0",
+      "@dnd-kit/utilities": "3.2.2",
+      "@fontsource-variable/inter": "5.3.0",
+      "@fontsource-variable/oxanium": "5.3.0",
+      "@hugeicons/core-free-icons": "4.3.5",
+      "@hugeicons/react": "1.1.10",
+      "@shadcn/react": "0.3.1",
+      "@stylexjs/stylex": "0.19.1",
+      "@tanstack/devtools-vite": "0.8.5",
+      "@tanstack/react-router": "1.170.44",
+      "@tanstack/react-start": "1.169.2",
+      "@tanstack/react-table": "9.3.1",
+      "@types/node": "26.6.5",
+      "@types/react": "19.3.0",
+      "@types/react-dom": "19.3.0",
+      "@vitejs/plugin-react": "6.1.2",
+      "cmdk": "1.1.1",
+      "date-fns": "4.4.0",
+      "embla-carousel-react": "8.6.0",
+      "input-otp": "1.5.0",
+      "react": "19.3.1",
+      "react-day-picker": "10.0.2",
+      "react-dom": "19.3.1",
+      "react-is": "19.3.1",
+      "react-qr-code": "2.2.0",
+      "react-resizable-panels": "4.14.5",
+      "recharts": "3.10.1",
+      "typescript": "7.0.2",
+      "vite": "8.3.4",
+      "zod": "4.6.7"
     }
   }
 }

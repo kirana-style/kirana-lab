@@ -10,14 +10,14 @@
     }
   },
   "dependencies": {
-    "@stylexjs/unplugin": "0.19.0",
-    "@tanstack/devtools-vite": "^0.8.5",
+    "@stylexjs/unplugin": "0.19.1",
+    "@tanstack/devtools-vite": "catalog:",
     "@tanstack/react-start": "catalog:",
-    "@vitejs/plugin-react": "^6.1.1",
-    "unplugin": "^3.3.0",
+    "@vitejs/plugin-react": "catalog:",
+    "unplugin": "3.4.0",
     "vite": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "^26.5.1"
+    "@types/node": "catalog:"
   }
 }

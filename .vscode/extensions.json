@@ -1,7 +1,9 @@
 {
   "recommendations": [
     // Linting and formatting (oxlint + oxfmt)
-    "oxc.oxc-vscode"
+    "oxc.oxc-vscode",
+    // Kirana's language server, for the corpus
+    "kirana-style.kirana"
 
     // TypeScript / React
     // "ms-vscode.vscode-typescript-next",
@@ -15,9 +17,9 @@
     "esbenp.prettier-vscode",
     "dbaeumer.vscode-eslint",
 
-    // Styling is StyleX now. The Tailwind extension would report every style
-    // object as an unknown class and offer completions for a framework that is
-    // no longer installed.
+    // The corpus is Kirana, and the Tailwind baseline is kept as written, never
+    // edited here: the Tailwind extension would only report the corpus's style
+    // objects as unknown classes.
     "bradlc.vscode-tailwindcss"
   ]
 }
