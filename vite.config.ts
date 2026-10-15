@@ -31,6 +31,11 @@ export default defineConfig({
         dependsOn: ["build:kirana", "build:stylex", "build:tailwind"],
         cache: false,
       },
+      // The harness's own tests: the statistics, the CSS counts and the report.
+      test: {
+        command: "bun run --cwd packages/harness test",
+        cache: { input: SOURCES, output: [] },
+      },
       // Format, lint and types, then the three workspaces' shared versions.
       check: {
         command:

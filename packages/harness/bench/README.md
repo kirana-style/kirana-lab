@@ -1,30 +1,51 @@
 # Benchmarks
 
-Two benchmarks, measuring two different things, both advisory under the claims policy in
-[the methodology](../../../METHODOLOGY.md).
+One command runs a whole session as [the methodology](../../../METHODOLOGY.md) describes it, and
+writes `results.json` (every raw sample) and `report.md` (what a reader sees) into
+`results/<kirana version>/<date>/`:
 
-| Script                       | Question                                          |
-| ---------------------------- | ------------------------------------------------- |
-| `bun run bench` (`slice.ts`) | What does the build cost, and what does it ship?  |
-| `bun run bench:runtime`      | What does the stylesheet cost the browser? (E-07) |
+```bash
+bun run bench                                   # 10 cold build rounds, conformance, 20 runtime runs
+bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conformance   # a smoke run
+```
 
-Results are kept in [`results.md`](results.md).
+| Option             | Default                    | What it does                                                         |
+| ------------------ | -------------------------- | -------------------------------------------------------------------- |
+| `--rounds`         | `10`                       | Cold build rounds per app, interleaved                               |
+| `--warmup`         | `1`                        | Rounds run first and discarded                                       |
+| `--apps`           | `web,blocks,examples`      | The apps built and checked                                           |
+| `--runtime-app`    | `web`                      | The app opened in the browser                                        |
+| `--runtime-rounds` | `20`                       | Browser runs per build and throttling rate                           |
+| `--throttle`       | `4,6`                      | CPU throttling rates                                                 |
+| `--no-conformance` | off                        | Skip the gate; the report then says the numbers are not to be quoted |
+| `--no-runtime`     | off                        | Builds only                                                          |
+| `--out`            | `results/<version>/<date>` | Where the two files go                                               |
+
+Its two parts also run on their own, printing their raw samples as JSON:
+
+| Script                  | Question                                         |
+| ----------------------- | ------------------------------------------------ |
+| `bun run bench:builds`  | What does the build cost, and what does it ship? |
+| `bun run bench:runtime` | What does the stylesheet cost the browser?       |
+
+Older results, from before this lab measured releases, are in [`results.md`](results.md).
 
 ## The build benchmark
 
 ```bash
-bun run bench kirana=$PWD stylex=$PWD/baselines/stylex tailwind=$PWD/baselines/tailwind \
-  --apps web,blocks,examples --rounds 5
+bun run bench:builds kirana=$PWD stylex=$PWD/baselines/stylex tailwind=$PWD/baselines/tailwind \
+  --apps web,blocks,examples --rounds 10 --json builds.json
 ```
 
-Builds each app from each checkout, interleaved, and reports build time, CSS and JavaScript size raw
-and gzipped. It refuses an app that is missing from any checkout, so a corpus is never compared
-against a smaller one (fairness rule 9).
+Builds each app from each checkout, cold and interleaved, and records every round: build time, CSS
+and JavaScript raw, gzip and brotli, and the stylesheet's rule and declaration counts. It refuses an
+app that is missing from any checkout, so a corpus is never compared against a smaller one
+(fairness rule 9).
 
 ## The runtime benchmark (E-07, KRN-PERF-006)
 
 ```bash
-bun run bench:runtime -- --serve --rounds 5 --throttle 4,6
+bun run bench:runtime --serve --rounds 20 --throttle 4,6
 ```
 
 Build size says nothing about the work a page does when someone uses it. A stylesheet of atoms asks
@@ -74,5 +95,5 @@ interleaved rounds:
 
 ```bash
 cp -r apps/web /tmp/web-variant        # change one thing in /tmp/web-variant/dist
-bun run bench:runtime -- --serve --also variant=/tmp/web-variant
+bun run bench:runtime --serve --also variant=/tmp/web-variant
 ```

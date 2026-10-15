@@ -6,5 +6,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["bench", "conformance"]
+  "include": ["bench", "conformance", "src", "test"]
 }

@@ -5,6 +5,10 @@ import type { KiranaConfig } from "@kirana-style/core/config"
  * libraries underneath. Spread into each app's `kirana.config.ts`.
  */
 export const uiConfig = {
+  // Installed packages are compiled only when listed here, and the scales preset ships source that
+  // declares its tokens with `defineTokens()`: a token the corpus reads at runtime would otherwise
+  // reach the browser uncompiled.
+  libraries: ["@kirana-style/preset-scales"],
   conditions: {
     // Attributes Base UI and react-day-picker never set together on one element.
     exclusive: [
