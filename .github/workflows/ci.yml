@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# What a pull request must keep true: the lab checks itself, its harness tests pass, and all three
+# implementations still build. Measuring is bench.yml's job.
+jobs:
+  check:
+    runs-on: ubuntu-26.04
+    name: checks, harness tests and builds
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Node.js from .node-version and Bun from package.json's `packageManager`, then the corpus.
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        with:
+          node-version-file: .node-version
+          cache: true
+          run-install: |
+            - args: ["--frozen-lockfile"]
+
+      # The baselines are workspaces of their own, each with its own lockfile.
+      - name: Install the baselines
+        run: |
+          (cd baselines/stylex && bun install --frozen-lockfile)
+          (cd baselines/tailwind && bun install --frozen-lockfile)
+
+      # Format, lint and types, then the shared versions and what the three lockfiles resolve.
+      - name: Checks
+        run: vp run check
+
+      - name: Harness tests
+        run: vp run test
+
+      - name: Build all three implementations
+        run: vp run build

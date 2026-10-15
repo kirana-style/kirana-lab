@@ -1,0 +1,102 @@
+name: bench
+
+# Measures a published Kirana release against StyleX and Tailwind CSS, under METHODOLOGY.md, and
+# publishes `results.json` and `report.md` as a release of this repository: `bench-<version>-…`.
+# Kirana's site takes its numbers from the newest of those whose conformance passed.
+on:
+  # Sent by kirana's release workflow once a release is on npm, with its version.
+  repository_dispatch:
+    types: [kirana-release]
+  # Weekly, against npm's `latest`, so a StyleX or Tailwind CSS update shows up too.
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Kirana release to measure (`latest` for npm's latest tag)
+        default: latest
+      rounds:
+        description: Cold build rounds per app
+        default: "10"
+      runtime-rounds:
+        description: Browser runs per build and throttling rate
+        default: "20"
+
+permissions:
+  contents: read
+
+# One session at a time: two on one machine would measure each other.
+concurrency:
+  group: bench
+  cancel-in-progress: false
+
+jobs:
+  bench:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 180
+    permissions:
+      # The release that carries the results.
+      contents: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        with:
+          node-version-file: .node-version
+          cache: true
+
+      # The version comes from the dispatch, the manual input or npm's `latest`; `use-kirana` refuses
+      # anything that is not a version. It changes the catalog, so the corpus installs fresh.
+      - name: Pin the Kirana release
+        env:
+          VERSION: ${{ github.event.client_payload.version || inputs.version || 'latest' }}
+        run: |
+          bun scripts/use-kirana.ts "$VERSION"
+          bun install
+
+      - name: Install the baselines
+        run: |
+          (cd baselines/stylex && bun install --frozen-lockfile)
+          (cd baselines/tailwind && bun install --frozen-lockfile)
+
+      # The shared versions and the lockfiles, before anything is measured.
+      - name: Fairness
+        run: |
+          bun scripts/sync-versions.ts --check
+          bun scripts/fairness.ts
+
+      # Conformance and the runtime benchmark both open Chrome stable.
+      - name: Chrome
+        working-directory: packages/harness
+        run: bunx playwright install --with-deps chrome
+
+      - name: Measure
+        env:
+          KIRANA_CHROME_CHANNEL: chrome
+          ROUNDS: ${{ inputs.rounds || '10' }}
+          RUNTIME_ROUNDS: ${{ inputs.runtime-rounds || '20' }}
+        run: bun packages/harness/src/run.ts --rounds "$ROUNDS" --runtime-rounds "$RUNTIME_ROUNDS" --out bench-out
+
+      - name: Keep the results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bench-${{ github.run_number }}
+          path: bench-out
+
+      # A release per session. One whose conformance did not pass is a prerelease, which the site
+      # never reads: its numbers compare builds not shown to render the same.
+      - name: Publish the results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(bun -e 'console.log(require("./bench-out/results.json").meta.kirana)')
+          passed=$(bun -e 'const c = Object.values(require("./bench-out/results.json").meta.conformance); console.log(c.every((s) => s === "passed"))')
+          tag="bench-$version-$(date -u +%Y%m%d)-${{ github.run_number }}"
+          gh release create "$tag" bench-out/results.json bench-out/report.md \
+            --title "Kirana $version, $(date -u +%Y-%m-%d)" \
+            --notes-file bench-out/report.md \
+            --latest=false \
+            $([ "$passed" = "true" ] || echo --prerelease)
