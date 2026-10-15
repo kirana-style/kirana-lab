@@ -1,0 +1,19 @@
+{
+  "name": "@kirana-lab/harness",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "The lab's measuring tools: the build and runtime benchmarks, and the conformance harness that compares the three implementations' computed styles.",
+  "scripts": {
+    "bench": "bun bench/slice.ts",
+    "bench:runtime": "bun bench/runtime.ts",
+    "conformance": "bun conformance/run.ts"
+  },
+  "dependencies": {
+    "playwright": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

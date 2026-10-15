@@ -67,22 +67,13 @@ property and optional route pattern (a regular expression), with a reason; it is
 
 ## What to prepare
 
-1. The prerequisites in the root README (Bun, Rust, `bun install`).
-2. Chrome for the harness: `cd packages/kirana && bunx playwright install chromium`, or an installed
+1. The prerequisites in the root README: Bun, then `bun install` here and in each baseline.
+2. Chrome for the harness: `bunx playwright install chromium`, or an installed
    Google Chrome with `KIRANA_CHROME_CHANNEL=chrome`.
-3. The two baselines, in `baselines/` (the StyleX and Tailwind builds of the same apps,
-   kept for comparison), built once:
-
-   ```bash
-   (cd baselines/stylex && bun install && bunx turbo run build --force)
-   (cd baselines/tailwind && bun install && bunx turbo run build --force)
-   ```
-
-   `--force` matters: a Turbo cache restored from another checkout can hold a server bundle that
-   imports packages this checkout does not have, and the page then answers 500. Elsewhere, point
-   `STYLEX_DIR` and `TAILWIND_DIR` at the checkouts (paths relative to this repository's root).
-
-4. This repository built: `bun run build` (native engine, then all three apps).
+3. The two baselines are in `baselines/`, the StyleX and Tailwind builds of the same apps.
+   Elsewhere, point `STYLEX_DIR` and `TAILWIND_DIR` at other checkouts (paths relative to this
+   repository's root).
+4. All three implementations built: `vp run build`.
 
 Rebuild whichever side changed before comparing: `vite preview` serves `dist/` as it is.
 
@@ -92,13 +83,13 @@ From the repository root. `--serve` starts the three `vite preview` servers for 
 stops them; stop `bun dev` first if it holds one of the ports.
 
 ```bash
-bun run kirana:conformance --app web --serve             # the demo page
-bun run kirana:conformance --app web --serve --states    # the demo's interactive states
-bun run kirana:conformance --app examples --serve --motion  # animations and their keyframes
-bun run kirana:conformance --app blocks --serve          # every route of apps/blocks
-bun run kirana:conformance --app examples --serve        # every route of apps/examples
-bun run kirana:conformance --app examples --serve --states  # states on every examples route
-bun run kirana:conformance --app examples --serve --states --paths /dialog,/menubar,/select
+bun run conformance --app web --serve             # the demo page
+bun run conformance --app web --serve --states    # the demo's interactive states
+bun run conformance --app examples --serve --motion  # animations and their keyframes
+bun run conformance --app blocks --serve          # every route of apps/blocks
+bun run conformance --app examples --serve        # every route of apps/examples
+bun run conformance --app examples --serve --states  # states on every examples route
+bun run conformance --app examples --serve --states --paths /dialog,/menubar,/select
 ```
 
 | Option            | Effect                                                                                 |
@@ -135,7 +126,7 @@ stylex: 64 route(s), 0 differences, 0 unexpected, 30 where the actual build matc
 tailwind: 64 route(s), 0 differences, 0 unexpected, 5523 inherited from the port
 ```
 
-The full report is `packages/kirana/conformance/output/<app>-<label>[-states][-<shard>].json`:
+The full report is `packages/harness/conformance/output/<app>-<label>[-states][-<shard>].json`:
 
 | Field        | Holds                                                                                                                           |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -148,7 +139,7 @@ The full report is `packages/kirana/conformance/output/<app>-<label>[-states][-<
 The exit code is 1 when anything is unexpected. To investigate one, open the route in both builds at
 the listed width and scheme and read the property from DevTools, or run
 `bun conformance/compare.ts --actual http://localhost:3002 --expected http://localhost:3321 --label stylex --paths /calendar`
-from `packages/kirana` to repeat just that route. `kirana trace <file>:<line> <property>` shows which of
+from `packages/harness` to repeat just that route. `kirana-style trace <file>:<line> <property>` shows which of
 the component's entries wins and why.
 
 ## In CI
@@ -157,7 +148,7 @@ The `conformance` job (and `baselines`, which only feeds it) is in `.github/work
 disabled with `if: false`: comparing every route in a browser is slow on hosted runners. Remove both
 `if: false` lines to run it on every push again. It is a matrix of seven jobs: `web`, `blocks` 1/3–3/3
 and `examples` 1/3–3/3. Each checks out the baselines as worktrees, downloads the builds, installs
-Chromium and runs `bun run kirana:conformance --app <app> --serve --shard <i/n>`, then the same with
+Chromium and runs `bun run conformance --app <app> --serve --shard <i/n>`, then the same with
 `--states`, and uploads its reports as the `conformance-<app>[-<shard>]` artifact.
 
 The same commands run anywhere with the preparation above, so any other pipeline can call them.

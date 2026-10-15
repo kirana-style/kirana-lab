@@ -10,11 +10,11 @@
     }
   },
   "dependencies": {
-    "@tanstack/devtools-vite": "^0.8.5",
+    "@tanstack/devtools-vite": "catalog:",
     "@tanstack/react-start": "catalog:",
-    "@vitejs/plugin-react": "^6.1.2",
+    "@vitejs/plugin-react": "catalog:",
     "vite": "catalog:",
-    "@kirana-style/vite": "workspace:*"
+    "@kirana-style/vite": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:"
