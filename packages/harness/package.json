@@ -9,6 +9,7 @@
     "builds": "bun bench/slice.ts",
     "runtime": "bun bench/runtime.ts",
     "large-dom": "bun bench/large-dom.ts",
+    "editor": "bun bench/editor.ts",
     "conformance": "bun conformance/run.ts",
     "test": "vp test run"
   },

@@ -49,7 +49,7 @@ When a shared dependency moves, change it in `versions.json`, then `bun run vers
 differently. After changing the StyleX baseline, `bun run sync-stylex-swc` copies it again.
 
 `bun run bench` builds every app cold for 10 interleaved rounds, checks conformance, measures the
-browser, drives the large-dom table at 1,000 and 5,000 rows, builds the scale curve at 100, 1,000 and 10,000 components, and writes `results.json` (every raw sample) and `report.md`. The harness's own guides:
+browser, drives the large-dom table at 1,000 and 5,000 rows, builds the scale curve at 100, 1,000 and 10,000 components, times the language server while editing, and writes `results.json` (every raw sample) and `report.md`. The harness's own guides:
 [benchmarks](packages/harness/bench/README.md) and
 [conformance](packages/harness/conformance/README.md).
 

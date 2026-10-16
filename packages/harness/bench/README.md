@@ -6,7 +6,7 @@ writes `results.json` (every raw sample) and `report.md` (what a reader sees) in
 
 ```bash
 bun run bench                                   # 10 cold build rounds, conformance, 20 runtime runs
-bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conformance --no-large-dom --no-scale-curve   # a smoke run
+bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conformance --no-large-dom --no-scale-curve --no-editor   # a smoke run
 ```
 
 | Option                 | Default                    | What it does                                                         |
@@ -23,6 +23,7 @@ bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conforman
 | `--scale-curve-sizes`  | `100,1000,10000`           | Component counts of the scale curve                                  |
 | `--no-scale-curve`     | off                        | Skip the scale curve (CI's `bench` job)                              |
 | `--only-scale-curve`   | off                        | The scale curve alone (CI's `scale-curve` job)                       |
+| `--no-editor`          | off                        | Skip the editor (tier D)                                             |
 | `--no-conformance`     | off                        | Skip the gate; the report then says the numbers are not to be quoted |
 | `--no-runtime`         | off                        | Builds only                                                          |
 | `--out`                | `results/<version>/<date>` | Where the two files go                                               |
@@ -36,6 +37,7 @@ Its parts also run on their own, printing their raw samples as JSON:
 | ------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `bun run bench:builds`    | What does the build cost, and what does it ship?                                                                |
 | `bun run bench:runtime`   | What does the stylesheet cost the browser?                                                                      |
+| `bun run bench:editor`    | What does the language server cost while editing, and `kirana-style check`?                                     |
 | `bun run bench:large-dom` | What does it cost on a page of thousands of rows? Build the four `apps/large-dom` first; `--serve` starts them. |
 
 Older results, from before this lab measured releases, are in [`results.md`](results.md).

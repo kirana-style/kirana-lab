@@ -4,8 +4,9 @@
  * appears here only as `results.json` has it, and a difference is called one only when its
  * confidence interval excludes 1.0; there are no medals.
  */
+import { BUDGETS } from "../bench/editor.ts"
 import { OTHERS, TARGETS } from "./results.ts"
-import type { Comparison, Results, Row, Target } from "./results.ts"
+import type { Comparison, Results, Row, Target, Tier } from "./results.ts"
 
 /** Every measure a report shows, in order, with how it reads. Lower is better for all of them. */
 /**
@@ -15,7 +16,7 @@ import type { Comparison, Results, Row, Target } from "./results.ts"
  */
 export const MEASURES: Record<
   string,
-  { label: string; tier: "A" | "B" | "C"; judged?: false }
+  { label: string; tier: Tier; judged?: false }
 > = {
   build: { label: "Build, cold", tier: "A" },
   cssRaw: { label: "CSS", tier: "B" },
@@ -44,6 +45,45 @@ export const MEASURES: Record<
   scrollRecalc: { label: "Scroll, style recalc", tier: "C" },
   hoverRecalc: { label: "Hover across rows, style recalc", tier: "C" },
   heap: { label: "JavaScript heap", tier: "C" },
+  indexing: { label: "Indexing the workspace", tier: "D" },
+  hoverP50: { label: "Hover, p50", tier: "D" },
+  hoverP95: { label: "Hover, p95", tier: "D" },
+  diagnosticsP50: { label: "Diagnostics after an edit, p50", tier: "D" },
+  diagnosticsP95: { label: "Diagnostics after an edit, p95", tier: "D" },
+  memoryIndexed: { label: "Memory, indexed", tier: "D" },
+  memoryEnd: { label: "Memory, at the end", tier: "D" },
+  check: { label: "kirana-style check", tier: "D" },
+}
+
+/** The editor's measures, against the language server's budgets: each a row with its verdict. */
+function editorTable(results: Results): { lines: string[]; missed: string[] } {
+  const rows = results.rows.filter((row) => row.tier === "D")
+  const missed: string[] = []
+  const lines = rows.map((row) => {
+    const budget = BUDGETS[row.metric as keyof typeof BUDGETS]
+    const over = budget !== undefined && row.median > budget
+    if (over)
+      missed.push(
+        `- **${MEASURES[row.metric]?.label ?? row.metric}**, in the editor: ${formatValue(row.median, row.unit)}, over its ${formatValue(budget, row.unit)} budget.`
+      )
+    return `| ${MEASURES[row.metric]?.label ?? row.metric} | ${cell(row)} | ${budget === undefined ? "–" : `≤ ${formatValue(budget, row.unit)}${over ? " **missed**" : ""}`} |`
+  })
+  return {
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            "## In the editor",
+            "",
+            `Kirana's own language server, ${rows[0]!.scenario}, against its budgets; no other tool here has one. Each cell is the median of the sessions.`,
+            "",
+            "| Measure | Kirana | Budget |",
+            "| --- | --- | --- |",
+            ...lines,
+            "",
+          ],
+    missed,
+  }
 }
 
 const NAMES: Record<Target, string> = {
@@ -244,7 +284,9 @@ export function renderReport(results: Results): string {
     ...new Set(
       results.rows
         .filter(
-          (row) => row.tier !== "C" && !row.corpus.startsWith("scale-curve/")
+          (row) =>
+            (row.tier === "A" || row.tier === "B") &&
+            !row.corpus.startsWith("scale-curve/")
         )
         .map((row) => row.corpus)
     ),
@@ -270,6 +312,7 @@ export function renderReport(results: Results): string {
     .map(([name, version]) => `\`${name}\` ${version}`)
     .join(", ")
 
+  const editor = editorTable(results)
   const lines = [
     `# Kirana ${meta.kirana}, measured against ${against}`,
     "",
@@ -288,7 +331,7 @@ export function renderReport(results: Results): string {
     `| Versions | ${targets} |`,
     `| Machine | ${meta.runner ? `${meta.runner}: ` : ""}${meta.hardware.cpu}, ${meta.hardware.cores} cores, ${meta.hardware.ramGb} GB, ${meta.hardware.os} |`,
     `| Tools | Node.js ${meta.runtime.node}, Bun ${meta.runtime.bun}${meta.runtime.chrome ? `, Chrome ${meta.runtime.chrome}` : ""} |`,
-    `| Rounds | ${meta.rounds.build} cold builds per app after ${meta.rounds.warmup} warm-up; ${meta.rounds.runtime} runtime runs${meta.rounds.largeDom ? `; ${meta.rounds.largeDom} rounds at each large-dom size` : ""}${meta.rounds.scaleCurve ? `; ${meta.rounds.scaleCurve} cold builds at each scale-curve size` : ""} |`,
+    `| Rounds | ${meta.rounds.build} cold builds per app after ${meta.rounds.warmup} warm-up; ${meta.rounds.runtime} runtime runs${meta.rounds.largeDom ? `; ${meta.rounds.largeDom} rounds at each large-dom size` : ""}${meta.rounds.scaleCurve ? `; ${meta.rounds.scaleCurve} cold builds at each scale-curve size` : ""}${meta.rounds.editor ? `; ${meta.rounds.editor} editing sessions` : ""} |`,
     `| Corpus | commit \`${meta.corpusCommit.slice(0, 7)}\` |`,
     `| Conformance | ${Object.entries(meta.conformance)
       .map(([app, state]) => `\`${app}\` ${state}`)
@@ -302,8 +345,15 @@ export function renderReport(results: Results): string {
     "",
     "## Where Kirana is behind",
     "",
+    ...editor.missed,
+    ...(editor.missed.length > 0 ? [""] : []),
     ...(behind.length === 0
-      ? ["In this run, no measure has Kirana higher with confidence.", ""]
+      ? [
+          editor.missed.length > 0
+            ? "Against the other tools, no measure has Kirana higher with confidence."
+            : "In this run, no measure has Kirana higher with confidence.",
+          "",
+        ]
       : [
           ...behind.map((comparison) => {
             const [ratio, low, high] = ratioParts(comparison)
@@ -344,6 +394,7 @@ export function renderReport(results: Results): string {
           ]),
         ]
       : []),
+    ...editor.lines,
     "## Method",
     "",
     `- **Builds** are each app's own \`vite build\`, cold (its \`dist\` and Vite cache removed first), interleaved so a round builds ${list(shown.map((target) => NAMES[target]))} in turn.`,
@@ -354,6 +405,11 @@ export function renderReport(results: Results): string {
       : []),
     "- **Sizes** are every client asset of the type, each compressed on its own as a browser receives it: gzip at level 9, brotli at quality 11.",
     "- **In the browser**, the page is grown to the same number of elements in each build, the CPU is throttled, and the renderer's own counters are read through the DevTools protocol.",
+    ...(meta.rounds.editor
+      ? [
+          "- **In the editor**, each session starts the published `kirana-style lsp` on the three apps, opens every UI component and page, hovers style positions in a seeded order and edits a value and back, timing each answer and the diagnostics after each edit; memory is the server's resident set. `kirana-style check` runs cold over the web app and the UI package.",
+        ]
+      : []),
     ...(meta.rounds.scaleCurve
       ? [
           "- **scale-curve** writes the same components for every implementation from one seeded sequence (`scripts/scale-curve.ts`): tokens, a font size with its line height and a recipe in each, a hover state in half, a breakpoint in three in ten, a relation in one in four and a runtime value in three in twenty, each implementation in its own idiom. The smallest size's pages pass conformance.",

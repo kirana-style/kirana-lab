@@ -15,7 +15,7 @@ export const OTHERS = TARGETS.filter(
   (target): target is Exclude<Target, "kirana"> => target !== "kirana"
 )
 
-export type Tier = "A" | "B" | "C"
+export type Tier = "A" | "B" | "C" | "D"
 
 export type Meta = {
   /** ISO date and time the run started. */
@@ -42,6 +42,8 @@ export type Meta = {
     warmup: number
     largeDom?: number
     scaleCurve?: number
+    /** Editing sessions against the language server, and `kirana-style check` runs. */
+    editor?: number
   }
   /** The machine the scale curve ran on, when a job of its own measured it (`src/merge.ts`). */
   scaleCurve?: Pick<Meta, "hardware" | "runner" | "run">
