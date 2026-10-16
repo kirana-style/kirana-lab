@@ -61,6 +61,18 @@ measure at every size, a curve, never one point.
   curve runs beside the session on a runner of its own. Its four implementations are compared on
   that one machine, which the report names; `src/merge.ts` joins the two files.
 
+### The editor (tier D)
+
+Only Kirana has a language server of its own, so tier D measures it alone, against its budgets
+(hover p95 ≤ 50 ms, diagnostics ≤ 200 ms after an edit, memory ≤ 300 MB), not against another
+tool. Each round is one editing session against the published `kirana-style lsp`, over stdio as
+an editor speaks to it (`bench/editor.ts`): the three apps as workspace folders, every UI component
+and page opened, 300 hovers at style positions in a seeded order, and 60 edits of a value and back,
+each timed to the diagnostics that follow. A round records its p50 and p95, and the server's
+resident memory after indexing and at the end. `kirana-style check` over the web app and the UI
+package is timed cold in the same rounds. A missed budget is listed first in "Where Kirana is
+behind".
+
 ### StyleX, compiled two ways
 
 StyleX has two compilers: its own Babel plugin, and the Rust compiler built on SWC
@@ -83,12 +95,12 @@ depends on which one a reader would pick.
 
 ## Tiers
 
-| Tier            | What it measures                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------ |
-| **A, build**    | Wall time of each app's `vite build`, cold.                                                |
-| **B, artifact** | What the build ships: CSS and JavaScript, raw and compressed; rule and declaration counts. |
-| **C, runtime**  | What the stylesheet costs the browser: style recalculation, layout and frame times.        |
-| **D, editor**   | The language server's latency. Not measured yet.                                           |
+| Tier            | What it measures                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| **A, build**    | Wall time of each app's `vite build`, cold.                                                           |
+| **B, artifact** | What the build ships: CSS and JavaScript, raw and compressed; rule and declaration counts.            |
+| **C, runtime**  | What the stylesheet costs the browser: style recalculation, layout and frame times.                   |
+| **D, editor**   | Kirana's language server: indexing, hover and diagnostics latency, memory; `kirana-style check` time. |
 
 ## Fairness rules
 

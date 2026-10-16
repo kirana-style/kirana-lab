@@ -9,13 +9,15 @@
  * 4. the large-dom corpus: its app built once for its sizes (tier B), checked by conformance, and
  *    driven at each size in the browser (`bench/large-dom.ts`);
  * 5. the scale-curve corpus: generated components at each size, built cold (`src/scale-curve.ts`);
+ * 5b. the editor (tier D): sessions against the language server and `kirana-style check`
+ *    (`bench/editor.ts`), Kirana's alone;
  * 6. `results.json` with every raw sample and the comparisons, and `report.md` from it.
  *
  *   bun src/run.ts [--rounds 10] [--warmup 1] [--runtime-rounds 20] [--throttle 4,6]
  *                  [--apps web,blocks,examples] [--runtime-app web]
  *                  [--large-dom-sizes 1000,5000] [--large-dom-throttle 4] [--no-large-dom]
  *                  [--scale-curve-sizes 100,1000,10000] [--no-scale-curve | --only-scale-curve]
- *                  [--no-conformance] [--no-runtime] [--out <folder>]
+ *                  [--no-editor] [--no-conformance] [--no-runtime] [--out <folder>]
  *
  * CI runs the scale-curve corpus as a job of its own (`--only-scale-curve`), beside the rest
  * (`--no-scale-curve`), and joins the two files with `src/merge.ts`: StyleX's Babel build of
@@ -34,6 +36,8 @@ import type { LargeDomSamples } from "../bench/large-dom.ts"
 import { measureRuntime } from "../bench/runtime.ts"
 import type { RuntimeSamples } from "../bench/runtime.ts"
 import { SIZES, measureScaleCurve } from "./scale-curve.ts"
+import { measureEditor } from "../bench/editor.ts"
+import type { EditorSamples } from "../bench/editor.ts"
 import { ROOT, corpusCommit, machine, versions } from "./meta.ts"
 import { renderReport } from "./report.ts"
 import { TARGETS, tabulate } from "./results.ts"
@@ -65,6 +69,7 @@ const scaleCurveSizes = option("scale-curve-sizes", SIZES.join(","))
   .map(Number)
 const apps = onlyScale ? [] : option("apps", "web,blocks,examples").split(",")
 const runtime = !onlyScale && !flag("no-runtime")
+const editor = !onlyScale && !flag("no-editor")
 
 const started = new Date()
 const { kirana, targets } = versions()
@@ -299,6 +304,34 @@ if (scaleCurve) {
   conformance["scale-curve"] = curve.conformance
 }
 
+// 5b. The editor: Kirana's language server and check, against their budgets.
+let editorScenario = ""
+if (editor) {
+  console.error(`editor: ${warmup} warm-up and ${rounds} sessions`)
+  const measured = await measureEditor({ rounds, warmup })
+  editorScenario = `the three apps, ${measured.files} files open, ${measured.hovers} hovers and ${measured.edits} edits a session`
+  const units: Record<keyof EditorSamples, string> = {
+    indexing: "ms",
+    hoverP50: "ms",
+    hoverP95: "ms",
+    diagnosticsP50: "ms",
+    diagnosticsP95: "ms",
+    memoryIndexed: "bytes",
+    memoryEnd: "bytes",
+    check: "ms",
+  }
+  for (const metric of Object.keys(units) as (keyof EditorSamples)[])
+    cells.push({
+      tier: "D",
+      corpus: "editor",
+      scenario: editorScenario,
+      metric,
+      unit: units[metric],
+      labels: [],
+      samples: { kirana: measured.samples[metric] },
+    })
+}
+
 // 6. The files.
 const results: Results = {
   meta: {
@@ -320,6 +353,7 @@ const results: Results = {
       warmup,
       ...(largeDom ? { largeDom: runtimeRounds } : {}),
       ...(scaleCurve ? { scaleCurve: rounds } : {}),
+      ...(editor ? { editor: rounds } : {}),
     },
     conformance,
   },

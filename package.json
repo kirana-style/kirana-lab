@@ -12,6 +12,7 @@
     "bench:builds": "bun run --cwd packages/harness builds",
     "bench:runtime": "bun run --cwd packages/harness runtime",
     "bench:large-dom": "bun run --cwd packages/harness large-dom",
+    "bench:editor": "bun run --cwd packages/harness editor",
     "conformance": "bun run --cwd packages/harness conformance"
   },
   "devDependencies": {

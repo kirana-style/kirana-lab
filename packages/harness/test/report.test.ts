@@ -181,6 +181,49 @@ describe("renderReport", () => {
     ])
   })
 
+  it("sets the editor's measures against their budgets, and lists a missed one first", () => {
+    const editor = tabulate([
+      {
+        tier: "D",
+        corpus: "editor",
+        scenario: "the three apps, 318 files open",
+        metric: "hoverP95",
+        unit: "ms",
+        labels: [],
+        samples: { kirana: [12.1, 12.9, 12.4] },
+      },
+      {
+        tier: "D",
+        corpus: "editor",
+        scenario: "the three apps, 318 files open",
+        metric: "diagnosticsP95",
+        unit: "ms",
+        labels: [],
+        samples: { kirana: [240, 250, 245] },
+      },
+    ])
+    const report = renderReport({
+      meta: { ...meta, rounds: { ...meta.rounds, editor: 3 } },
+      ...editor,
+    })
+    expect(report).toContain("## In the editor")
+    expect(report).toContain("the three apps, 318 files open")
+    expect(report).toMatch(/\| Hover, p95 \| 12\.4 ms .*\| ≤ 50\.0 ms \|/)
+    expect(report).toContain("≤ 200.0 ms **missed**")
+    expect(report).toContain(
+      "- **Diagnostics after an edit, p95**, in the editor: 245.0 ms, over its 200.0 ms budget."
+    )
+    expect(report.indexOf("over its")).toBeLessThan(
+      report.indexOf("## Build and output")
+    )
+    expect(report).toContain("3 editing sessions")
+    expect(report).toContain(
+      "Against the other tools, no measure has Kirana higher with confidence."
+    )
+    // Not a build: the editor's rows stay out of "Build and output".
+    expect(report).not.toContain("### `apps/undefined`")
+  })
+
   it("names the large-dom corpus by its size, and says how it was driven", () => {
     const large = tabulate([
       {
