@@ -1,0 +1,6 @@
+/*
+ * The shared stylesheet, plus the generated components: Tailwind does not scan git-ignored files,
+ * and `src/generated/` is git-ignored (`scripts/scale-curve.ts` writes it), so it is named here.
+ */
+@import "@workspace/ui/globals.css";
+@source "./generated";

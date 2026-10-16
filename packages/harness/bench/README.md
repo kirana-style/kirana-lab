@@ -6,7 +6,7 @@ writes `results.json` (every raw sample) and `report.md` (what a reader sees) in
 
 ```bash
 bun run bench                                   # 10 cold build rounds, conformance, 20 runtime runs
-bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conformance --no-large-dom   # a smoke run
+bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conformance --no-large-dom --no-scale-curve   # a smoke run
 ```
 
 | Option                 | Default                    | What it does                                                         |
@@ -20,9 +20,15 @@ bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conforman
 | `--large-dom-sizes`    | `1000,5000`                | Row counts of the large-dom table; `10000` and `25000` by hand       |
 | `--large-dom-throttle` | `4`                        | Its CPU throttling rate                                              |
 | `--no-large-dom`       | off                        | Skip the large-dom corpus                                            |
+| `--scale-curve-sizes`  | `100,1000,10000`           | Component counts of the scale curve                                  |
+| `--no-scale-curve`     | off                        | Skip the scale curve (CI's `bench` job)                              |
+| `--only-scale-curve`   | off                        | The scale curve alone (CI's `scale-curve` job)                       |
 | `--no-conformance`     | off                        | Skip the gate; the report then says the numbers are not to be quoted |
 | `--no-runtime`         | off                        | Builds only                                                          |
 | `--out`                | `results/<version>/<date>` | Where the two files go                                               |
+
+CI runs the session as two jobs and joins their files with
+`bun src/merge.ts <session>/results.json <scale-curve>/results.json --out <folder>`.
 
 Its parts also run on their own, printing their raw samples as JSON:
 

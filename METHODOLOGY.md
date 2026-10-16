@@ -39,6 +39,28 @@ seeded generator (`src/data/orders.ts`, the same file in every implementation), 
 - **Conformance** compares the table at 40 rows, the same rules as the other apps: its rows differ
   only in their data.
 
+### scale-curve: the same components, more of them
+
+A third corpus asks how the cost grows. `scripts/scale-curve.ts` writes 100, 1,000 and 10,000
+components into each implementation's `apps/scale-curve` (git-ignored, written before each size
+is built), and each size is built cold for the same rounds as the demos. The report shows every
+measure at every size, a curve, never one point.
+
+- **The components.** Each is a card: a root, a title and a button. One seeded sequence decides what
+  each one uses, so the first 100 are the same at every size and the shares do not change with it:
+  tokens, a font size with its line height and a recipe in every one, a hover state in half, a
+  breakpoint in three in ten, a relation in one in four and a runtime value in three in twenty.
+- **Each in its own idiom.** Kirana with `css()`, `recipe()` and `relation()`; StyleX with
+  `stylex.create()`, a variant map, a dynamic style and `stylex.when.ancestor` with a marker;
+  Tailwind CSS with utilities, `cva`, an inline style and a named group. StyleX (SWC) builds the
+  StyleX sources.
+- **Tailwind is told where they are.** Tailwind does not scan git-ignored files, so its app's
+  stylesheet adds `@source "./generated"` to the shared one: its documented way to name them.
+- **Conformance** compares the 100-component page: 0 differences against StyleX and StyleX (SWC).
+- **Its own job in CI.** StyleX's Babel build of 10,000 components takes minutes each round, so the
+  curve runs beside the session on a runner of its own. Its four implementations are compared on
+  that one machine, which the report names; `src/merge.ts` joins the two files.
+
 ### StyleX, compiled two ways
 
 StyleX has two compilers: its own Babel plugin, and the Rust compiler built on SWC

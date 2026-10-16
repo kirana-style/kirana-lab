@@ -8,12 +8,18 @@
  * 3. the browser (tier C) on one app, at each CPU throttling rate;
  * 4. the large-dom corpus: its app built once for its sizes (tier B), checked by conformance, and
  *    driven at each size in the browser (`bench/large-dom.ts`);
- * 5. `results.json` with every raw sample and the comparisons, and `report.md` from it.
+ * 5. the scale-curve corpus: generated components at each size, built cold (`src/scale-curve.ts`);
+ * 6. `results.json` with every raw sample and the comparisons, and `report.md` from it.
  *
  *   bun src/run.ts [--rounds 10] [--warmup 1] [--runtime-rounds 20] [--throttle 4,6]
  *                  [--apps web,blocks,examples] [--runtime-app web]
  *                  [--large-dom-sizes 1000,5000] [--large-dom-throttle 4] [--no-large-dom]
+ *                  [--scale-curve-sizes 100,1000,10000] [--no-scale-curve | --only-scale-curve]
  *                  [--no-conformance] [--no-runtime] [--out <folder>]
+ *
+ * CI runs the scale-curve corpus as a job of its own (`--only-scale-curve`), beside the rest
+ * (`--no-scale-curve`), and joins the two files with `src/merge.ts`: StyleX's Babel build of
+ * 10,000 components alone takes most of an hour, and one runner would not finish both in time.
  *
  * The folder defaults to `results/<kirana version>/<date>` at the repository root.
  */
@@ -27,6 +33,7 @@ import { measureLargeDom } from "../bench/large-dom.ts"
 import type { LargeDomSamples } from "../bench/large-dom.ts"
 import { measureRuntime } from "../bench/runtime.ts"
 import type { RuntimeSamples } from "../bench/runtime.ts"
+import { SIZES, measureScaleCurve } from "./scale-curve.ts"
 import { ROOT, corpusCommit, machine, versions } from "./meta.ts"
 import { renderReport } from "./report.ts"
 import { TARGETS, tabulate } from "./results.ts"
@@ -43,14 +50,21 @@ const rounds = Number(option("rounds", "10"))
 const warmup = Number(option("warmup", "1"))
 const runtimeRounds = Number(option("runtime-rounds", "20"))
 const throttles = option("throttle", "4,6").split(",").map(Number)
-const apps = option("apps", "web,blocks,examples").split(",")
 const runtimeApp = option("runtime-app", "web")
 // 10,000 and 25,000 rows take too long for a hosted runner's session; name them here to measure them.
 const largeDomSizes = option("large-dom-sizes", "1000,5000")
   .split(",")
   .map(Number)
 const largeDomThrottle = Number(option("large-dom-throttle", "4"))
-const largeDom = !flag("no-large-dom")
+// Only the scale curve, for its own CI job: none of the three-way, browser or large-dom work.
+const onlyScale = flag("only-scale-curve")
+const largeDom = !onlyScale && !flag("no-large-dom")
+const scaleCurve = onlyScale || !flag("no-scale-curve")
+const scaleCurveSizes = option("scale-curve-sizes", SIZES.join(","))
+  .split(",")
+  .map(Number)
+const apps = onlyScale ? [] : option("apps", "web,blocks,examples").split(",")
+const runtime = !onlyScale && !flag("no-runtime")
 
 const started = new Date()
 const { kirana, targets } = versions()
@@ -71,53 +85,55 @@ const roots: Record<Target, string> = {
 }
 
 // 1. Builds.
-console.error(
-  `builds: ${apps.join(", ")}, ${warmup} warm-up and ${rounds} rounds`
-)
-const builds = measureBuilds({
-  labels: TARGETS.map((target) => [target, roots[target]] as const),
-  apps,
-  rounds,
-  warmup,
-})
-
 const cells: Cell[] = []
-for (const metric of Object.keys(BUILD_METRICS) as BuildMetric[]) {
-  const unit = BUILD_METRICS[metric]
-  const tier = metric === "build" ? "A" : "B"
-  for (const app of apps) {
+if (apps.length > 0) {
+  console.error(
+    `builds: ${apps.join(", ")}, ${warmup} warm-up and ${rounds} rounds`
+  )
+  const builds = measureBuilds({
+    labels: TARGETS.map((target) => [target, roots[target]] as const),
+    apps,
+    rounds,
+    warmup,
+  })
+
+  for (const metric of Object.keys(BUILD_METRICS) as BuildMetric[]) {
+    const unit = BUILD_METRICS[metric]
+    const tier = metric === "build" ? "A" : "B"
+    for (const app of apps) {
+      cells.push({
+        tier,
+        corpus: `three-way/${app}`,
+        scenario: "build",
+        metric,
+        unit,
+        labels: metric === "build" ? ["cold"] : ["minified"],
+        samples: Object.fromEntries(
+          TARGETS.map((target) => [target, builds[app]![target]![metric]])
+        ) as Record<Target, number[]>,
+      })
+    }
+    // The corpus total: each round's sum over the apps, so it keeps one sample per round.
     cells.push({
       tier,
-      corpus: `three-way/${app}`,
+      corpus: "three-way/total",
       scenario: "build",
       metric,
       unit,
       labels: metric === "build" ? ["cold"] : ["minified"],
       samples: Object.fromEntries(
-        TARGETS.map((target) => [target, builds[app]![target]![metric]])
+        TARGETS.map((target) => [
+          target,
+          Array.from({ length: rounds }, (_, round) =>
+            apps.reduce(
+              (sum, app) => sum + builds[app]![target]![metric][round]!,
+              0
+            )
+          ),
+        ])
       ) as Record<Target, number[]>,
     })
   }
-  // The corpus total: each round's sum over the apps, so it keeps one sample per round.
-  cells.push({
-    tier,
-    corpus: "three-way/total",
-    scenario: "build",
-    metric,
-    unit,
-    labels: metric === "build" ? ["cold"] : ["minified"],
-    samples: Object.fromEntries(
-      TARGETS.map((target) => [
-        target,
-        Array.from({ length: rounds }, (_, round) =>
-          apps.reduce(
-            (sum, app) => sum + builds[app]![target]![metric][round]!,
-            0
-          )
-        ),
-      ])
-    ) as Record<Target, number[]>,
-  })
 }
 
 // 2. Conformance on the builds just made.
@@ -143,17 +159,17 @@ if (!flag("no-conformance")) {
 
 // 3. The browser.
 let chrome: string | undefined
-if (!flag("no-runtime")) {
+if (runtime) {
   console.error(
     `runtime: ${runtimeApp}, ${runtimeRounds} runs at ${throttles.join("×, ")}×`
   )
-  const runtime = await measureRuntime({
+  const browser = await measureRuntime({
     app: runtimeApp,
     rounds: runtimeRounds,
     throttles,
     serve: true,
   })
-  chrome = runtime.chrome
+  chrome = browser.chrome
   const units: Record<keyof RuntimeSamples, string> = {
     scheme: "ms",
     schemeRecalcs: "count",
@@ -167,14 +183,14 @@ if (!flag("no-runtime")) {
       cells.push({
         tier: "C",
         corpus: `three-way/${runtimeApp}`,
-        scenario: `CPU throttled ${rate}×, about ${runtime.elements.kirana} elements`,
+        scenario: `CPU throttled ${rate}×, about ${browser.elements.kirana} elements`,
         metric,
         unit: units[metric],
         labels: [`throttle-${rate}`],
         samples: Object.fromEntries(
           TARGETS.map((target) => [
             target,
-            runtime.samples[rate]![target]![metric],
+            browser.samples[rate]![target]![metric],
           ])
         ) as Record<Target, number[]>,
       })
@@ -270,7 +286,20 @@ if (largeDom) {
   }
 }
 
-// 5. The files.
+// 5. The scale curve.
+if (scaleCurve) {
+  const curve = measureScaleCurve({
+    roots,
+    sizes: scaleCurveSizes,
+    rounds,
+    warmup,
+    conformance: !flag("no-conformance"),
+  })
+  cells.push(...curve.cells)
+  conformance["scale-curve"] = curve.conformance
+}
+
+// 6. The files.
 const results: Results = {
   meta: {
     date: started.toISOString(),
@@ -287,9 +316,10 @@ const results: Results = {
     ...(run ? { run } : {}),
     rounds: {
       build: rounds,
-      runtime: flag("no-runtime") ? 0 : runtimeRounds,
+      runtime: runtime ? runtimeRounds : 0,
       warmup,
       ...(largeDom ? { largeDom: runtimeRounds } : {}),
+      ...(scaleCurve ? { scaleCurve: rounds } : {}),
     },
     conformance,
   },

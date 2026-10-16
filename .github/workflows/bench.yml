@@ -31,10 +31,64 @@ concurrency:
   group: bench
   cancel-in-progress: false
 
+# The scale curve is a job of its own, on its own runner beside the session: StyleX's Babel build
+# of 10,000 components alone takes most of an hour. Each job compares the four implementations on
+# its one machine; `publish` joins the two files (`src/merge.ts`) and records both machines.
 jobs:
   bench:
     runs-on: ubuntu-26.04
     timeout-minutes: 330
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/prepare
+        with:
+          version: ${{ github.event.client_payload.version || inputs.version || 'latest' }}
+
+      - name: Measure
+        env:
+          KIRANA_CHROME_CHANNEL: chrome
+          ROUNDS: ${{ inputs.rounds || '10' }}
+          RUNTIME_ROUNDS: ${{ inputs.runtime-rounds || '20' }}
+        run: bun packages/harness/src/run.ts --rounds "$ROUNDS" --runtime-rounds "$RUNTIME_ROUNDS" --no-scale-curve --out bench-out
+
+      - name: Keep the results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bench-${{ github.run_number }}
+          path: bench-out
+
+  scale-curve:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 300
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/prepare
+        with:
+          version: ${{ github.event.client_payload.version || inputs.version || 'latest' }}
+
+      - name: Measure
+        env:
+          KIRANA_CHROME_CHANNEL: chrome
+          ROUNDS: ${{ inputs.rounds || '10' }}
+        run: bun packages/harness/src/run.ts --rounds "$ROUNDS" --only-scale-curve --out scale-out
+
+      - name: Keep the results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scale-curve-${{ github.run_number }}
+          path: scale-out
+
+  publish:
+    needs: [bench, scale-curve]
+    runs-on: ubuntu-26.04
     permissions:
       # The release that carries the results.
       contents: write
@@ -44,51 +98,30 @@ jobs:
         with:
           persist-credentials: false
 
+      # Bun only: the merge reads and writes JSON and Markdown, with no dependency.
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version-file: .node-version
-          cache: true
+          run-install: false
 
-      # The version comes from the dispatch, the manual input or npm's `latest`; `use-kirana` refuses
-      # anything that is not a version. It changes the catalog, so the corpus installs fresh.
-      - name: Pin the Kirana release
-        env:
-          VERSION: ${{ github.event.client_payload.version || inputs.version || 'latest' }}
-        run: |
-          bun scripts/use-kirana.ts "$VERSION"
-          bun install
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: bench-${{ github.run_number }}
+          path: bench-out
 
-      # The SWC baseline builds the StyleX baseline's apps, copied in before it installs.
-      - name: Install the baselines
-        run: |
-          (cd baselines/stylex && bun install --frozen-lockfile)
-          bun scripts/sync-stylex-swc.ts
-          (cd baselines/stylex-swc && bun install --frozen-lockfile)
-          (cd baselines/tailwind && bun install --frozen-lockfile)
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: scale-curve-${{ github.run_number }}
+          path: scale-out
 
-      # The shared versions and the lockfiles, before anything is measured.
-      - name: Fairness
-        run: |
-          bun scripts/sync-versions.ts --check
-          bun scripts/fairness.ts
-
-      # Conformance and the runtime benchmark both open Chrome stable.
-      - name: Chrome
-        working-directory: packages/harness
-        run: bunx playwright install --with-deps chrome
-
-      - name: Measure
-        env:
-          KIRANA_CHROME_CHANNEL: chrome
-          ROUNDS: ${{ inputs.rounds || '10' }}
-          RUNTIME_ROUNDS: ${{ inputs.runtime-rounds || '20' }}
-        run: bun packages/harness/src/run.ts --rounds "$ROUNDS" --runtime-rounds "$RUNTIME_ROUNDS" --out bench-out
+      - name: Join the two halves
+        run: bun packages/harness/src/merge.ts bench-out/results.json scale-out/results.json --out results-out
 
       - name: Keep the results
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: bench-${{ github.run_number }}
-          path: bench-out
+          name: results-${{ github.run_number }}
+          path: results-out
 
       # A release per session. One whose conformance did not pass is a prerelease, which the site
       # never reads: its numbers compare builds not shown to render the same.
@@ -96,11 +129,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(bun -e 'console.log(require("./bench-out/results.json").meta.kirana)')
-          passed=$(bun -e 'const c = Object.values(require("./bench-out/results.json").meta.conformance); console.log(c.every((s) => s === "passed"))')
+          version=$(bun -e 'console.log(require("./results-out/results.json").meta.kirana)')
+          passed=$(bun -e 'const c = Object.values(require("./results-out/results.json").meta.conformance); console.log(c.every((s) => s === "passed"))')
           tag="bench-$version-$(date -u +%Y%m%d)-${{ github.run_number }}"
-          gh release create "$tag" bench-out/results.json bench-out/report.md \
+          gh release create "$tag" results-out/results.json results-out/report.md \
             --title "Kirana $version, $(date -u +%Y-%m-%d)" \
-            --notes-file bench-out/report.md \
+            --notes-file results-out/report.md \
             --latest=false \
             $([ "$passed" = "true" ] || echo --prerelease)

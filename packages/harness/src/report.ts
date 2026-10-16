@@ -159,11 +159,56 @@ function table(
 const corpusName = (corpus: string) => {
   if (corpus.endsWith("/total")) return "All apps"
   const [name, part] = corpus.split("/")
+  if (name === "scale-curve")
+    return `\`scale-curve\`, ${Number(part).toLocaleString("en-US")} components`
   if (name === "large-dom")
     return part
       ? `\`large-dom\`, ${Number(part).toLocaleString("en-US")} rows`
       : "`apps/large-dom`"
   return `\`apps/${part}\``
+}
+
+/** The curve: each measure's median at every size, per implementation, and Kirana's ratio beneath. */
+function curve(
+  results: Results,
+  sizes: number[],
+  shown: readonly Target[]
+): string[] {
+  const median = (size: number, metric: string, target: Target) =>
+    results.rows.find(
+      (row) =>
+        row.corpus === `scale-curve/${size}` &&
+        row.metric === metric &&
+        row.target === target
+    )?.median
+  const ratio = (size: number, metric: string, against: Target) =>
+    results.comparisons.find(
+      (entry) =>
+        entry.corpus === `scale-curve/${size}` &&
+        entry.metric === metric &&
+        entry.against === against
+    )
+  const head = sizes.map((size) => size.toLocaleString("en-US"))
+  return (["build", "totalGzip"] as const).flatMap((metric) => {
+    const unit = metric === "build" ? "ms" : "bytes"
+    return [
+      `**${MEASURES[metric]!.label}**`,
+      "",
+      `| | ${head.join(" | ")} |`,
+      `| --- | ${head.map(() => "---").join(" | ")} |`,
+      ...shown.map(
+        (target) =>
+          `| ${NAMES[target]} | ${sizes.map((size) => formatValue(median(size, metric, target) ?? Number.NaN, unit)).join(" | ")} |`
+      ),
+      ...shown
+        .filter((target) => target !== "kirana")
+        .map(
+          (against) =>
+            `| Kirana ÷ ${NAMES[against]} | ${sizes.map((size) => formatRatio(ratio(size, metric, against))).join(" | ")} |`
+        ),
+      "",
+    ]
+  })
 }
 
 export function renderReport(results: Results): string {
@@ -187,9 +232,21 @@ export function renderReport(results: Results): string {
       comparison.corpus.endsWith("/total") ||
       !totalBehind.has(`${comparison.metric}|${comparison.against}`)
   )
+  const curveSizes = [
+    ...new Set(
+      results.rows
+        .map((row) => /^scale-curve\/(\d+)$/.exec(row.corpus)?.[1])
+        .filter((size): size is string => size !== undefined)
+        .map(Number)
+    ),
+  ].sort((a, b) => a - b)
   const corpora = [
     ...new Set(
-      results.rows.filter((row) => row.tier !== "C").map((row) => row.corpus)
+      results.rows
+        .filter(
+          (row) => row.tier !== "C" && !row.corpus.startsWith("scale-curve/")
+        )
+        .map((row) => row.corpus)
     ),
   ].sort((a, b) =>
     a.endsWith("/total") ? -1 : b.endsWith("/total") ? 1 : a.localeCompare(b)
@@ -231,7 +288,7 @@ export function renderReport(results: Results): string {
     `| Versions | ${targets} |`,
     `| Machine | ${meta.runner ? `${meta.runner}: ` : ""}${meta.hardware.cpu}, ${meta.hardware.cores} cores, ${meta.hardware.ramGb} GB, ${meta.hardware.os} |`,
     `| Tools | Node.js ${meta.runtime.node}, Bun ${meta.runtime.bun}${meta.runtime.chrome ? `, Chrome ${meta.runtime.chrome}` : ""} |`,
-    `| Rounds | ${meta.rounds.build} cold builds per app after ${meta.rounds.warmup} warm-up; ${meta.rounds.runtime} runtime runs${meta.rounds.largeDom ? `; ${meta.rounds.largeDom} rounds at each large-dom size` : ""} |`,
+    `| Rounds | ${meta.rounds.build} cold builds per app after ${meta.rounds.warmup} warm-up; ${meta.rounds.runtime} runtime runs${meta.rounds.largeDom ? `; ${meta.rounds.largeDom} rounds at each large-dom size` : ""}${meta.rounds.scaleCurve ? `; ${meta.rounds.scaleCurve} cold builds at each scale-curve size` : ""} |`,
     `| Corpus | commit \`${meta.corpusCommit.slice(0, 7)}\` |`,
     `| Conformance | ${Object.entries(meta.conformance)
       .map(([app, state]) => `\`${app}\` ${state}`)
@@ -273,6 +330,20 @@ export function renderReport(results: Results): string {
         ...table(results, corpus, scenario, shown),
       ]
     }),
+    ...(curveSizes.length > 0
+      ? [
+          "## Scale curve",
+          "",
+          `The same generated components at ${list(curveSizes.map((size) => size.toLocaleString("en-US")))} components, each size built cold${meta.scaleCurve?.runner ? ` on its own runner (${meta.scaleCurve.hardware.cpu}, ${meta.scaleCurve.hardware.cores} cores), beside the rest of the session: compare within this section, never with the tables above` : ""}.`,
+          "",
+          ...curve(results, curveSizes, shown),
+          ...curveSizes.flatMap((size) => [
+            `### ${corpusName(`scale-curve/${size}`)}`,
+            "",
+            ...table(results, `scale-curve/${size}`, "build", shown),
+          ]),
+        ]
+      : []),
     "## Method",
     "",
     `- **Builds** are each app's own \`vite build\`, cold (its \`dist\` and Vite cache removed first), interleaved so a round builds ${list(shown.map((target) => NAMES[target]))} in turn.`,
@@ -283,6 +354,11 @@ export function renderReport(results: Results): string {
       : []),
     "- **Sizes** are every client asset of the type, each compressed on its own as a browser receives it: gzip at level 9, brotli at quality 11.",
     "- **In the browser**, the page is grown to the same number of elements in each build, the CPU is throttled, and the renderer's own counters are read through the DevTools protocol.",
+    ...(meta.rounds.scaleCurve
+      ? [
+          "- **scale-curve** writes the same components for every implementation from one seeded sequence (`scripts/scale-curve.ts`): tokens, a font size with its line height and a recipe in each, a hover state in half, a breakpoint in three in ten, a relation in one in four and a runtime value in three in twenty, each implementation in its own idiom. The smallest size's pages pass conformance.",
+        ]
+      : []),
     ...(meta.rounds.largeDom
       ? [
           "- **large-dom** is an order table built at each size from each implementation's own components, with the same seeded rows. Each round filters it to Overdue and back to All (each timed from the click to the next frame), scrolls through it, and moves the pointer across rows; the heap is read after a garbage collection. Its HTML and `class` bytes are the page as the server sent it.",

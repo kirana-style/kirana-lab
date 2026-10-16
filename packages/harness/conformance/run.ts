@@ -3,7 +3,7 @@
  * the Tailwind original, and the StyleX port compiled by SWC against the same port compiled by Babel
  * (packages/harness/conformance/README.md).
  *
- *   bun conformance/run.ts [--app web|blocks|examples|large-dom] [--serve] [--shard 1/3] [--states] [--motion]
+ *   bun conformance/run.ts [--app web|blocks|examples|large-dom|scale-curve] [--serve] [--shard 1/3] [--states] [--motion]
  *
  * Every app has fixed ports; `KIRANA_URL`, `STYLEX_URL`, `STYLEX_SWC_URL` and `TAILWIND_URL`
  * override them:
@@ -13,13 +13,15 @@
  *   blocks    3001    3311    3312      3313
  *   examples  3002    3321    3322      3323
  *   large-dom 3003    3331    3332      3333
+ *   scale-curve 3004  3341    3342      3343
  *
  * `--serve` starts `vite preview` for the four builds first and stops them at the end. The baseline
  * checkouts are `STYLEX_DIR`, `STYLEX_SWC_DIR` and `TAILWIND_DIR`, by default `baselines/stylex`,
  * `baselines/stylex-swc` and `baselines/tailwind` in this repository; every build must already
  * exist (`dist/`).
  *
- * `web` compares its one page and large-dom its table at 40 rows; `blocks` and `examples` crawl every
+ * `web` compares its one page, large-dom its table at 40 rows, and scale-curve the components
+ * `scripts/scale-curve.ts` last wrote; `blocks` and `examples` crawl every
  * route unless `--paths` names some.
  * `--states` compares interactive states on those routes instead of pages at rest.
  * The StyleX comparison treats a difference where Kirana matches the Tailwind original as a
@@ -31,15 +33,23 @@ import type { ChildProcess } from "node:child_process"
 import { existsSync } from "node:fs"
 import path from "node:path"
 
-const APPS = { web: 0, blocks: 1, examples: 2, "large-dom": 3 } as const
+const APPS = {
+  web: 0,
+  blocks: 1,
+  examples: 2,
+  "large-dom": 3,
+  "scale-curve": 4,
+} as const
 
 /**
- * The page each app compares when no `--paths` is given: `web` has one page, and large-dom is
- * compared at a few rows, since its rows differ only in data; `blocks` and `examples` crawl.
+ * The page each app compares when no `--paths` is given: `web` and scale-curve have one page,
+ * and large-dom is compared at a few rows, since its rows differ only in data; `blocks` and
+ * `examples` crawl.
  */
 const PAGES: Partial<Record<App, string>> = {
   web: "/",
   "large-dom": "/?rows=40",
+  "scale-curve": "/",
 }
 type App = keyof typeof APPS
 
