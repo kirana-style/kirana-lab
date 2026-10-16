@@ -118,6 +118,49 @@ describe("renderReport", () => {
     ).toContain("shared CI runner")
   })
 
+  it("gives StyleX (SWC) its own columns when the run measured it", () => {
+    const four = tabulate([
+      {
+        tier: "A",
+        corpus: "three-way/web",
+        scenario: "build",
+        metric: "build",
+        unit: "ms",
+        labels: ["cold"],
+        samples: {
+          kirana: [1000, 1010, 990],
+          stylex: [3000, 3030, 2970],
+          "stylex-swc": [2000, 2020, 1980],
+          tailwind: [1500, 1510, 1490],
+        },
+      },
+    ])
+    const report = renderReport({ meta, ...four })
+    expect(report).toContain(
+      "# Kirana 0.2.0, measured against StyleX, StyleX (SWC) and Tailwind CSS"
+    )
+    expect(report).toContain(
+      "| Measure | Kirana | StyleX | StyleX (SWC) | Tailwind CSS | Kirana ÷ StyleX | Kirana ÷ StyleX (SWC) | Kirana ÷ Tailwind CSS |"
+    )
+    expect(report).toContain(
+      "| --- | --- | --- | --- | --- | --- | --- | --- |"
+    )
+    expect(report).toContain("`@stylexswc/unplugin`, the Rust compiler")
+    expect(four.comparisons.map((comparison) => comparison.against)).toEqual([
+      "stylex",
+      "stylex-swc",
+      "tailwind",
+    ])
+  })
+
+  it("leaves out a target the run did not measure", () => {
+    const report = renderReport(results())
+    expect(report).toContain(
+      "| Measure | Kirana | StyleX | Tailwind CSS | Kirana ÷ StyleX | Kirana ÷ Tailwind CSS |"
+    )
+    expect(report).not.toContain("SWC")
+  })
+
   it("has no medals", () => {
     expect(renderReport(results())).not.toMatch(/🥇|🥈|🥉/)
   })

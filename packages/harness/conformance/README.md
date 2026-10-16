@@ -1,13 +1,14 @@
 # Browser conformance
 
 Kirana is proven by comparing what the browser actually renders, not by looking at screenshots. The
-same three apps exist in three implementations:
+same three apps exist in three implementations, and the StyleX one is built by two compilers:
 
-| Implementation       | Where                                                  |
-| -------------------- | ------------------------------------------------------ |
-| Kirana (this branch) | `apps/web`, `apps/blocks`, `apps/examples`             |
-| StyleX port          | the `stylex` branch — the code Kirana was ported from  |
-| Tailwind original    | the `tailwind` branch — the shadcn/ui source it copies |
+| Implementation    | Where                                                             |
+| ----------------- | ----------------------------------------------------------------- |
+| Kirana            | `apps/web`, `apps/blocks`, `apps/examples`                        |
+| StyleX port       | `baselines/stylex`: the code Kirana was ported from               |
+| StyleX port, SWC  | `baselines/stylex-swc`: the same code, compiled by the SWC plugin |
+| Tailwind original | `baselines/tailwind`: the shadcn/ui source it copies              |
 
 The harness opens every page of an app in all implementations in Chrome and diffs **computed styles**.
 
@@ -54,12 +55,13 @@ correction.
 
 ## Pass criteria
 
-Two comparisons per app:
+Three comparisons per app:
 
 | Comparison                  | Arbiter                              | Fails on                                                                                                                                              |
 | --------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Kirana against StyleX port  | the Tailwind original (`--original`) | any difference, except where Kirana matches the Tailwind original: then the StyleX port was wrong, and the difference is listed as `corrected`        |
 | Kirana against the original | the StyleX port (`--port-of`)        | any difference the StyleX port does not share: a difference both have with the same value is `inherited` from the port, a decision made there already |
+| SWC against Babel           | none                                 | any difference: the two compile the same sources, so a difference is the compiler's                                                                   |
 
 So the gate is: **Kirana renders exactly like the StyleX port, except where it renders like the
 Tailwind original instead.** The same arbiters apply to interactive states. `expected-differences.json` can still list an exception by element,
@@ -70,16 +72,16 @@ property and optional route pattern (a regular expression), with a reason; it is
 1. The prerequisites in the root README: Bun, then `bun install` here and in each baseline.
 2. Chrome for the harness: `bunx playwright install chromium`, or an installed
    Google Chrome with `KIRANA_CHROME_CHANNEL=chrome`.
-3. The two baselines are in `baselines/`, the StyleX and Tailwind builds of the same apps.
-   Elsewhere, point `STYLEX_DIR` and `TAILWIND_DIR` at other checkouts (paths relative to this
-   repository's root).
-4. All three implementations built: `vp run build`.
+3. The baselines are in `baselines/`: the StyleX, StyleX (SWC) and Tailwind builds of the same
+   apps. Elsewhere, point `STYLEX_DIR`, `STYLEX_SWC_DIR` and `TAILWIND_DIR` at other checkouts
+   (paths relative to this repository's root).
+4. Every implementation built: `vp run build`.
 
 Rebuild whichever side changed before comparing: `vite preview` serves `dist/` as it is.
 
 ## Running it
 
-From the repository root. `--serve` starts the three `vite preview` servers for the app, compares, and
+From the repository root. `--serve` starts the four `vite preview` servers for the app, compares, and
 stops them; stop `bun dev` first if it holds one of the ports.
 
 ```bash
@@ -101,13 +103,13 @@ bun run conformance --app examples --serve --states --paths /dialog,/menubar,/se
 | `--shard i/n`     | compare every n-th route of the sorted list (CI runs blocks and examples as 3 shards)  |
 | `--concurrency n` | routes compared at once (default 4)                                                    |
 
-| App        | Kirana | StyleX | Tailwind |
-| ---------- | ------ | ------ | -------- |
-| `web`      | 3000   | 3301   | 3302     |
-| `blocks`   | 3001   | 3311   | 3312     |
-| `examples` | 3002   | 3321   | 3322     |
+| App        | Kirana | StyleX | Tailwind | StyleX (SWC) |
+| ---------- | ------ | ------ | -------- | ------------ |
+| `web`      | 3000   | 3301   | 3302     | 3303         |
+| `blocks`   | 3001   | 3311   | 3312     | 3313         |
+| `examples` | 3002   | 3321   | 3322     | 3323         |
 
-`KIRANA_URL`, `STYLEX_URL` and `TAILWIND_URL` override the ports. Routes are not hand-kept:
+`KIRANA_URL`, `STYLEX_URL`, `STYLEX_SWC_URL` and `TAILWIND_URL` override the ports. Routes are not hand-kept:
 `blocks` and `examples` crawl every same-origin link on the index page, plus every iframe those pages
 embed (`/view/<name>`); `web` is its one page.
 

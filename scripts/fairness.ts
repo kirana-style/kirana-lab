@@ -1,9 +1,9 @@
 /**
- * Checks that the three implementations install the same dependencies, by comparing what their
+ * Checks that the implementations install the same dependencies, by comparing what their
  * lockfiles resolved rather than what their manifests ask for (fairness rule 1).
  *
  * - A shared dependency (`versions.json`) resolved to different versions is an error.
- * - A package all three install, resolved to different versions underneath them, is listed: the
+ * - A package they all install, resolved to different versions underneath them, is listed: the
  *   build tools they share (Vite, React) can pull different copies through the styling tool, and
  *   the report names those so a size difference is not read as the styling's alone.
  *
@@ -80,7 +80,7 @@ if (import.meta.main) {
           .join(" · ")}`
       )
     console.log(
-      `fairness: ${errors.length} shared dependencies out of step, ${transitive.length} packages all three install at different versions`
+      `fairness: ${errors.length} shared dependencies out of step, ${transitive.length} packages they all install at different versions`
     )
   }
   if (errors.length > 0) {

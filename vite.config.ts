@@ -22,13 +22,22 @@ export default defineConfig({
     tasks: {
       "build:kirana": { command: buildAll("."), cache: false },
       "build:stylex": { command: buildAll("baselines/stylex"), cache: false },
+      "build:stylex-swc": {
+        command: buildAll("baselines/stylex-swc"),
+        cache: false,
+      },
       "build:tailwind": {
         command: buildAll("baselines/tailwind"),
         cache: false,
       },
       build: {
-        command: "echo All three implementations built.",
-        dependsOn: ["build:kirana", "build:stylex", "build:tailwind"],
+        command: "echo Every implementation built.",
+        dependsOn: [
+          "build:kirana",
+          "build:stylex",
+          "build:stylex-swc",
+          "build:tailwind",
+        ],
         cache: false,
       },
       // The harness's own tests: the statistics, the CSS counts and the report.
@@ -36,7 +45,7 @@ export default defineConfig({
         command: "bun run --cwd packages/harness test",
         cache: { input: SOURCES, output: [] },
       },
-      // Format, lint and types, then the three workspaces' shared versions.
+      // Format, lint and types, then the workspaces' shared versions.
       check: {
         command:
           "vp check && bun scripts/sync-versions.ts --check && bun scripts/fairness.ts",

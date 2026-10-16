@@ -1,7 +1,8 @@
 name: bench
 
-# Measures a published Kirana release against StyleX and Tailwind CSS, under METHODOLOGY.md, and
-# publishes `results.json` and `report.md` as a release of this repository: `bench-<version>-…`.
+# Measures a published Kirana release against StyleX (compiled by Babel and by SWC) and Tailwind
+# CSS, under METHODOLOGY.md, and publishes `results.json` and `report.md` as a release of this
+# repository: `bench-<version>-…`.
 # Kirana's site takes its numbers from the newest of those whose conformance passed.
 on:
   # Sent by kirana's release workflow once a release is on npm, with its version.
@@ -33,7 +34,7 @@ concurrency:
 jobs:
   bench:
     runs-on: ubuntu-26.04
-    timeout-minutes: 180
+    timeout-minutes: 240
     permissions:
       # The release that carries the results.
       contents: write
@@ -57,9 +58,12 @@ jobs:
           bun scripts/use-kirana.ts "$VERSION"
           bun install
 
+      # The SWC baseline builds the StyleX baseline's apps, copied in before it installs.
       - name: Install the baselines
         run: |
           (cd baselines/stylex && bun install --frozen-lockfile)
+          bun scripts/sync-stylex-swc.ts
+          (cd baselines/stylex-swc && bun install --frozen-lockfile)
           (cd baselines/tailwind && bun install --frozen-lockfile)
 
       # The shared versions and the lockfiles, before anything is measured.

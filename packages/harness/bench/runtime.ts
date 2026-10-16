@@ -11,8 +11,8 @@
  * `:where()` and relation selectors ask for more still. This measures whether that shows up where a
  * person would feel it.
  *
- * The same route is opened in the Kirana, StyleX and Tailwind builds — the same markup, by
- * construction, because conformance proves it — and each one is:
+ * The same route is opened in the Kirana, StyleX (Babel and SWC) and Tailwind builds — the same
+ * markup, by construction, because conformance proves it — and each one is:
  *
  * 1. loaded, then grown until the page holds at least `--elements` elements, by cloning the main
  *    content. Every build is cloned the same way, so the DOMs stay comparable;
@@ -25,7 +25,7 @@
  *
  * The CPU is throttled (4× and 6×) because a fast desktop hides exactly the differences this is
  * looking for. Rounds are interleaved across builds so that a machine that warms up or throttles
- * does it to all three.
+ * does it to all of them.
  */
 import { spawn } from "node:child_process"
 import type { ChildProcess } from "node:child_process"
@@ -48,7 +48,7 @@ export type RuntimeOptions = {
   throttles?: number[]
   serve?: boolean
   /**
-   * Extra builds to measure beside the three, as `label=/path/to/app`.
+   * Extra builds to measure beside the four, as `label=/path/to/app`.
    *
    * A hypothesis about why one build is slower is only answered by measuring both in the *same*
    * interleaved run: absolute times move with whatever else the machine is doing, so two runs
@@ -68,7 +68,7 @@ function buildsFor(app: string, also: readonly string[]) {
     return [
       value.slice(0, split),
       {
-        url: `http://localhost:${3404 + index}`,
+        url: `http://localhost:${3405 + index}`,
         directory: path.resolve(repository, value.slice(split + 1)),
       },
     ] as const
@@ -82,6 +82,17 @@ function buildsFor(app: string, also: readonly string[]) {
       url: "http://localhost:3402",
       directory: path.join(
         path.resolve(repository, process.env.STYLEX_DIR ?? "baselines/stylex"),
+        "apps",
+        app
+      ),
+    },
+    "stylex-swc": {
+      url: "http://localhost:3404",
+      directory: path.join(
+        path.resolve(
+          repository,
+          process.env.STYLEX_SWC_DIR ?? "baselines/stylex-swc"
+        ),
         "apps",
         app
       ),

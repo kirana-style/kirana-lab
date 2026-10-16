@@ -13,8 +13,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# What a pull request must keep true: the lab checks itself, its harness tests pass, and all three
-# implementations still build. Measuring is bench.yml's job.
+# What a pull request must keep true: the lab checks itself, its harness tests pass, and every
+# implementation still builds. Measuring is bench.yml's job.
 jobs:
   check:
     runs-on: ubuntu-26.04
@@ -33,18 +33,21 @@ jobs:
           run-install: |
             - args: ["--frozen-lockfile"]
 
-      # The baselines are workspaces of their own, each with its own lockfile.
+      # The baselines are workspaces of their own, each with its own lockfile. The SWC baseline builds
+      # the StyleX baseline's apps, copied in before it installs.
       - name: Install the baselines
         run: |
           (cd baselines/stylex && bun install --frozen-lockfile)
+          bun scripts/sync-stylex-swc.ts
+          (cd baselines/stylex-swc && bun install --frozen-lockfile)
           (cd baselines/tailwind && bun install --frozen-lockfile)
 
-      # Format, lint and types, then the shared versions and what the three lockfiles resolve.
+      # Format, lint and types, then the shared versions and what the lockfiles resolve.
       - name: Checks
         run: vp run check
 
       - name: Harness tests
         run: vp run test
 
-      - name: Build all three implementations
+      - name: Build every implementation
         run: vp run build

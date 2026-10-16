@@ -4,7 +4,7 @@
  * and the machine.
  */
 import { execFileSync } from "node:child_process"
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync, realpathSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
@@ -21,6 +21,22 @@ export function installed(from: string, name: string): string | undefined {
     if (existsSync(file))
       return (JSON.parse(readFileSync(file, "utf8")) as { version: string })
         .version
+    if (directory === path.dirname(directory)) return undefined
+  }
+}
+
+/**
+ * The version of a package another one depends on, as that package resolves it. Bun's isolated
+ * installs keep a dependency of a dependency beside it, out of the app's reach.
+ */
+export function installedUnder(
+  from: string,
+  parent: string,
+  name: string
+): string | undefined {
+  for (let directory = from; ; directory = path.dirname(directory)) {
+    const found = path.join(directory, "node_modules", parent)
+    if (existsSync(found)) return installed(realpathSync(found), name)
     if (directory === path.dirname(directory)) return undefined
   }
 }
@@ -45,6 +61,7 @@ export function versions(): {
   const stylex = path.join(ROOT, "baselines/stylex/apps/web")
   const tailwind = path.join(ROOT, "baselines/tailwind/apps/web")
   const viteConfig = path.join(ROOT, "baselines/stylex/packages/vite-config")
+  const swcConfig = path.join(ROOT, "baselines/stylex-swc/packages/vite-config")
   const found: Record<string, string | undefined> = {
     "@kirana-style/vite": installed(
       path.join(ROOT, "packages/vite-config"),
@@ -52,6 +69,12 @@ export function versions(): {
     ),
     "@stylexjs/stylex": installed(stylex, "@stylexjs/stylex"),
     "@stylexjs/unplugin": installed(viteConfig, "@stylexjs/unplugin"),
+    "@stylexswc/unplugin": installed(swcConfig, "@stylexswc/unplugin"),
+    "@stylexswc/rs-compiler": installedUnder(
+      swcConfig,
+      "@stylexswc/unplugin",
+      "@stylexswc/rs-compiler"
+    ),
     tailwindcss: installed(tailwind, "tailwindcss"),
     "@tailwindcss/vite": installed(tailwind, "@tailwindcss/vite"),
     vite: installed(kirana, "vite"),

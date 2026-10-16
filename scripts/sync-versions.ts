@@ -1,7 +1,7 @@
 /**
- * Writes `versions.json`'s shared versions into the three workspaces: each workspace's catalog gets
+ * Writes `versions.json`'s shared versions into every workspace: each workspace's catalog gets
  * the exact version, and every app and package that depends on one of them asks for `catalog:`.
- * The three lockfiles then resolve the same versions, so a difference in what the builds ship comes
+ * The lockfiles then resolve the same versions, so a difference in what the builds ship comes
  * from the styling (fairness rule 1).
  *
  *   bun scripts/sync-versions.ts           # write
