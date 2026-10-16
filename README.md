@@ -10,16 +10,16 @@ a number must have before it can be quoted.
 
 ## Layout
 
-| Path                                  | What it is                                                                        |
-| ------------------------------------- | --------------------------------------------------------------------------------- |
-| `apps/`                               | The Kirana implementation: `web`, `blocks`, `examples` and `large-dom`            |
-| `packages/ui`, `shell`, `vite-config` | Their components and shared Vite setup                                            |
-| `baselines/stylex`                    | The same apps with StyleX, a workspace of its own with its own lockfile           |
-| `baselines/stylex-swc`                | The StyleX apps compiled by SWC: its own Vite setup and lockfile, the apps copied |
-| `baselines/tailwind`                  | The same apps with Tailwind CSS, likewise                                         |
-| `packages/harness`                    | The build and runtime benchmarks, and the conformance harness                     |
-| `versions.json`                       | Every dependency the implementations share, at one exact version                  |
-| `scripts/`                            | Pin a Kirana release, keep the shared versions in step, compare the lockfiles     |
+| Path                                  | What it is                                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| `apps/`                               | The Kirana implementation: `web`, `blocks`, `examples`, `large-dom`, `scale-curve` |
+| `packages/ui`, `shell`, `vite-config` | Their components and shared Vite setup                                             |
+| `baselines/stylex`                    | The same apps with StyleX, a workspace of its own with its own lockfile            |
+| `baselines/stylex-swc`                | The StyleX apps compiled by SWC: its own Vite setup and lockfile, the apps copied  |
+| `baselines/tailwind`                  | The same apps with Tailwind CSS, likewise                                          |
+| `packages/harness`                    | The build and runtime benchmarks, and the conformance harness                      |
+| `versions.json`                       | Every dependency the implementations share, at one exact version                   |
+| `scripts/`                            | Pin a Kirana release, keep the shared versions in step, compare the lockfiles      |
 
 Kirana comes from npm, at the release in the root `package.json`'s catalog; the lab never builds it
 from source, so it measures what users install.
@@ -49,7 +49,7 @@ When a shared dependency moves, change it in `versions.json`, then `bun run vers
 differently. After changing the StyleX baseline, `bun run sync-stylex-swc` copies it again.
 
 `bun run bench` builds every app cold for 10 interleaved rounds, checks conformance, measures the
-browser, drives the large-dom table at 1,000 and 5,000 rows, and writes `results.json` (every raw sample) and `report.md`. The harness's own guides:
+browser, drives the large-dom table at 1,000 and 5,000 rows, builds the scale curve at 100, 1,000 and 10,000 components, and writes `results.json` (every raw sample) and `report.md`. The harness's own guides:
 [benchmarks](packages/harness/bench/README.md) and
 [conformance](packages/harness/conformance/README.md).
 

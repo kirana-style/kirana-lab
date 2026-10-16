@@ -1,0 +1,49 @@
+name: Prepare a bench session
+description: >-
+  Node.js and Bun, the Kirana release pinned and installed, every baseline installed, the
+  fairness checks, and Chrome stable: what each of bench.yml's measuring jobs starts from.
+
+inputs:
+  version:
+    description: The Kirana release to measure, or `latest`
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+      with:
+        node-version-file: .node-version
+        cache: true
+
+    # `use-kirana` refuses anything that is not a version. It changes the catalog, so the corpus
+    # installs fresh.
+    - name: Pin the Kirana release
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        bun scripts/use-kirana.ts "$VERSION"
+        bun install
+
+    # The SWC baseline builds the StyleX baseline's apps, copied in before it installs.
+    - name: Install the baselines
+      shell: bash
+      run: |
+        (cd baselines/stylex && bun install --frozen-lockfile)
+        bun scripts/sync-stylex-swc.ts
+        (cd baselines/stylex-swc && bun install --frozen-lockfile)
+        (cd baselines/tailwind && bun install --frozen-lockfile)
+
+    # The shared versions and the lockfiles, before anything is measured.
+    - name: Fairness
+      shell: bash
+      run: |
+        bun scripts/sync-versions.ts --check
+        bun scripts/fairness.ts
+
+    # Conformance and the browser benchmarks open Chrome stable.
+    - name: Chrome
+      shell: bash
+      working-directory: packages/harness
+      run: bunx playwright install --with-deps chrome

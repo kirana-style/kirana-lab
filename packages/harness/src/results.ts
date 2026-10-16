@@ -32,8 +32,19 @@ export type Meta = {
   runner?: string
   /** The CI run that produced the file. */
   run?: string
-  /** `largeDom`: the rounds at each size of the large-dom corpus, when the run measured it. */
-  rounds: { build: number; runtime: number; warmup: number; largeDom?: number }
+  /**
+   * `largeDom`: the rounds at each size of the large-dom corpus; `scaleCurve`: the cold builds at
+   * each size of the scale curve. Each only when the run measured it.
+   */
+  rounds: {
+    build: number
+    runtime: number
+    warmup: number
+    largeDom?: number
+    scaleCurve?: number
+  }
+  /** The machine the scale curve ran on, when a job of its own measured it (`src/merge.ts`). */
+  scaleCurve?: Pick<Meta, "hardware" | "runner" | "run">
   /** Conformance per app, run before the numbers are trusted (fairness rule 8). */
   conformance: Record<string, "passed" | "failed" | "not run">
 }
