@@ -34,7 +34,7 @@ concurrency:
 jobs:
   bench:
     runs-on: ubuntu-26.04
-    timeout-minutes: 240
+    timeout-minutes: 330
     permissions:
       # The release that carries the results.
       contents: write

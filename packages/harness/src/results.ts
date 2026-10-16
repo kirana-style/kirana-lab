@@ -32,7 +32,8 @@ export type Meta = {
   runner?: string
   /** The CI run that produced the file. */
   run?: string
-  rounds: { build: number; runtime: number; warmup: number }
+  /** `largeDom`: the rounds at each size of the large-dom corpus, when the run measured it. */
+  rounds: { build: number; runtime: number; warmup: number; largeDom?: number }
   /** Conformance per app, run before the numbers are trusted (fairness rule 8). */
   conformance: Record<string, "passed" | "failed" | "not run">
 }
@@ -40,7 +41,10 @@ export type Meta = {
 /** One cell: an implementation's samples of one metric, in one scenario, on one corpus. */
 export type Row = Summary & {
   tier: Tier
-  /** `three-way/web`, …, or `three-way/total` for the sum of the apps. */
+  /**
+   * `three-way/web`, …, or `three-way/total` for the sum of the apps; `large-dom` for that app's
+   * build, and `large-dom/<rows>` for its page at one size.
+   */
   corpus: string
   target: Target
   scenario: string

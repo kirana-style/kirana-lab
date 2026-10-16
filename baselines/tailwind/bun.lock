@@ -76,6 +76,30 @@
         "vite": "catalog:",
       },
     },
+    "apps/large-dom": {
+      "name": "large-dom",
+      "version": "0.0.1",
+      "dependencies": {
+        "@hugeicons/core-free-icons": "catalog:",
+        "@hugeicons/react": "catalog:",
+        "@tailwindcss/vite": "4.3.3",
+        "@tanstack/react-router": "catalog:",
+        "@tanstack/react-start": "catalog:",
+        "@workspace/ui": "workspace:*",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "tailwindcss": "4.3.3",
+      },
+      "devDependencies": {
+        "@tanstack/devtools-vite": "catalog:",
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@vitejs/plugin-react": "catalog:",
+        "typescript": "catalog:",
+        "vite": "catalog:",
+      },
+    },
     "apps/web": {
       "name": "web",
       "version": "0.0.1",
@@ -662,6 +686,8 @@
     "jsesc": ["jsesc@3.1.0", "", { "bin": { "jsesc": "bin/jsesc" } }, "sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA=="],
 
     "json5": ["json5@2.2.3", "", { "bin": { "json5": "lib/cli.js" } }, "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg=="],
+
+    "large-dom": ["large-dom@workspace:apps/large-dom"],
 
     "launch-editor": ["launch-editor@2.14.2", "", { "dependencies": { "picocolors": "^1.1.1", "shell-quote": "^1.10.0" } }, "sha512-NHJEb30MGBCkmZXLZwz25t37QR4aY03ZzPYUJXOJaOa92uWwExI9SBQUuIznBYc1xkD7cJNGX7oc3Nl3sq2kQQ=="],
 

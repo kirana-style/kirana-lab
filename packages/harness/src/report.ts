@@ -32,6 +32,18 @@ export const MEASURES: Record<
   hoverRecalcs: { label: "Hover, recalcs", tier: "C" },
   layout: { label: "Layout", tier: "C" },
   framesP95: { label: "Frame time, p95", tier: "C" },
+  html: { label: "HTML", tier: "B" },
+  classBytes: { label: "`class` attributes", tier: "B" },
+  filter: { label: "Filter, to the next frame", tier: "C" },
+  filterRecalc: { label: "Filter, style recalc", tier: "C" },
+  filterLayout: { label: "Filter, layout", tier: "C" },
+  restore: { label: "Every row again, to the next frame", tier: "C" },
+  restoreRecalc: { label: "Every row again, style recalc", tier: "C" },
+  restoreLayout: { label: "Every row again, layout", tier: "C" },
+  scrollP95: { label: "Scroll, frame time p95", tier: "C" },
+  scrollRecalc: { label: "Scroll, style recalc", tier: "C" },
+  hoverRecalc: { label: "Hover across rows, style recalc", tier: "C" },
+  heap: { label: "JavaScript heap", tier: "C" },
 }
 
 const NAMES: Record<Target, string> = {
@@ -49,7 +61,10 @@ const list = (names: string[]) =>
 
 export function formatValue(value: number, unit: string): string {
   if (!Number.isFinite(value)) return "–"
-  if (unit === "bytes") return `${(value / 1000).toFixed(1)} kB`
+  if (unit === "bytes")
+    return value >= 1_000_000
+      ? `${(value / 1_000_000).toFixed(2)} MB`
+      : `${(value / 1000).toFixed(1)} kB`
   if (unit === "ms")
     return value >= 1000
       ? `${(value / 1000).toFixed(2)} s`
@@ -141,8 +156,15 @@ function table(
   ]
 }
 
-const corpusName = (corpus: string) =>
-  corpus.endsWith("/total") ? "All apps" : `\`apps/${corpus.split("/")[1]}\``
+const corpusName = (corpus: string) => {
+  if (corpus.endsWith("/total")) return "All apps"
+  const [name, part] = corpus.split("/")
+  if (name === "large-dom")
+    return part
+      ? `\`large-dom\`, ${Number(part).toLocaleString("en-US")} rows`
+      : "`apps/large-dom`"
+  return `\`apps/${part}\``
+}
 
 export function renderReport(results: Results): string {
   const { meta } = results
@@ -209,7 +231,7 @@ export function renderReport(results: Results): string {
     `| Versions | ${targets} |`,
     `| Machine | ${meta.runner ? `${meta.runner}: ` : ""}${meta.hardware.cpu}, ${meta.hardware.cores} cores, ${meta.hardware.ramGb} GB, ${meta.hardware.os} |`,
     `| Tools | Node.js ${meta.runtime.node}, Bun ${meta.runtime.bun}${meta.runtime.chrome ? `, Chrome ${meta.runtime.chrome}` : ""} |`,
-    `| Rounds | ${meta.rounds.build} cold builds per app after ${meta.rounds.warmup} warm-up; ${meta.rounds.runtime} runtime runs |`,
+    `| Rounds | ${meta.rounds.build} cold builds per app after ${meta.rounds.warmup} warm-up; ${meta.rounds.runtime} runtime runs${meta.rounds.largeDom ? `; ${meta.rounds.largeDom} rounds at each large-dom size` : ""} |`,
     `| Corpus | commit \`${meta.corpusCommit.slice(0, 7)}\` |`,
     `| Conformance | ${Object.entries(meta.conformance)
       .map(([app, state]) => `\`${app}\` ${state}`)
@@ -261,6 +283,11 @@ export function renderReport(results: Results): string {
       : []),
     "- **Sizes** are every client asset of the type, each compressed on its own as a browser receives it: gzip at level 9, brotli at quality 11.",
     "- **In the browser**, the page is grown to the same number of elements in each build, the CPU is throttled, and the renderer's own counters are read through the DevTools protocol.",
+    ...(meta.rounds.largeDom
+      ? [
+          "- **large-dom** is an order table built at each size from each implementation's own components, with the same seeded rows. Each round filters it to Overdue and back to All (each timed from the click to the next frame), scrolls through it, and moves the pointer across rows; the heap is read after a garbage collection. Its HTML and `class` bytes are the page as the server sent it.",
+        ]
+      : []),
     meta.runner
       ? "- **The machine** is a shared CI runner, and GitHub may give another run a different processor (this run's is under Machine above), so absolute times move from run to run; compare the ratios within this run, never numbers from two runs."
       : "- **The machine** is a developer's, not a CI runner: these numbers are for checking the lab, not for quoting.",

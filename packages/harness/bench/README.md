@@ -6,27 +6,31 @@ writes `results.json` (every raw sample) and `report.md` (what a reader sees) in
 
 ```bash
 bun run bench                                   # 10 cold build rounds, conformance, 20 runtime runs
-bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conformance   # a smoke run
+bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conformance --no-large-dom   # a smoke run
 ```
 
-| Option             | Default                    | What it does                                                         |
-| ------------------ | -------------------------- | -------------------------------------------------------------------- |
-| `--rounds`         | `10`                       | Cold build rounds per app, interleaved                               |
-| `--warmup`         | `1`                        | Rounds run first and discarded                                       |
-| `--apps`           | `web,blocks,examples`      | The apps built and checked                                           |
-| `--runtime-app`    | `web`                      | The app opened in the browser                                        |
-| `--runtime-rounds` | `20`                       | Browser runs per build and throttling rate                           |
-| `--throttle`       | `4,6`                      | CPU throttling rates                                                 |
-| `--no-conformance` | off                        | Skip the gate; the report then says the numbers are not to be quoted |
-| `--no-runtime`     | off                        | Builds only                                                          |
-| `--out`            | `results/<version>/<date>` | Where the two files go                                               |
+| Option                 | Default                    | What it does                                                         |
+| ---------------------- | -------------------------- | -------------------------------------------------------------------- |
+| `--rounds`             | `10`                       | Cold build rounds per app, interleaved                               |
+| `--warmup`             | `1`                        | Rounds run first and discarded                                       |
+| `--apps`               | `web,blocks,examples`      | The apps built and checked                                           |
+| `--runtime-app`        | `web`                      | The app opened in the browser                                        |
+| `--runtime-rounds`     | `20`                       | Browser runs per build and throttling rate                           |
+| `--throttle`           | `4,6`                      | CPU throttling rates                                                 |
+| `--large-dom-sizes`    | `1000,5000`                | Row counts of the large-dom table; `10000` and `25000` by hand       |
+| `--large-dom-throttle` | `4`                        | Its CPU throttling rate                                              |
+| `--no-large-dom`       | off                        | Skip the large-dom corpus                                            |
+| `--no-conformance`     | off                        | Skip the gate; the report then says the numbers are not to be quoted |
+| `--no-runtime`         | off                        | Builds only                                                          |
+| `--out`                | `results/<version>/<date>` | Where the two files go                                               |
 
-Its two parts also run on their own, printing their raw samples as JSON:
+Its parts also run on their own, printing their raw samples as JSON:
 
-| Script                  | Question                                         |
-| ----------------------- | ------------------------------------------------ |
-| `bun run bench:builds`  | What does the build cost, and what does it ship? |
-| `bun run bench:runtime` | What does the stylesheet cost the browser?       |
+| Script                    | Question                                                                                                        |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `bun run bench:builds`    | What does the build cost, and what does it ship?                                                                |
+| `bun run bench:runtime`   | What does the stylesheet cost the browser?                                                                      |
+| `bun run bench:large-dom` | What does it cost on a page of thousands of rows? Build the four `apps/large-dom` first; `--serve` starts them. |
 
 Older results, from before this lab measured releases, are in [`results.md`](results.md).
 
