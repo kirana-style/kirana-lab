@@ -6,8 +6,14 @@
 import { compareMedians, summarize } from "./stats.ts"
 import type { Ratio, Summary } from "./stats.ts"
 
-export const TARGETS = ["kirana", "stylex", "tailwind"] as const
+/** StyleX twice: compiled by its Babel plugin, and by the Rust (SWC) compiler. */
+export const TARGETS = ["kirana", "stylex", "stylex-swc", "tailwind"] as const
 export type Target = (typeof TARGETS)[number]
+
+/** Every target Kirana is compared with. */
+export const OTHERS = TARGETS.filter(
+  (target): target is Exclude<Target, "kirana"> => target !== "kirana"
+)
 
 export type Tier = "A" | "B" | "C"
 
@@ -56,8 +62,9 @@ export type Comparison = Ratio & {
 
 export type Results = { meta: Meta; rows: Row[]; comparisons: Comparison[] }
 
+/** A target without samples, or absent, was not measured: it gets no row and no comparison. */
 export type Cell = Omit<Row, keyof Summary | "samples" | "target"> & {
-  samples: Record<Target, number[]>
+  samples: Partial<Record<Target, number[]>>
 }
 
 /** Rows and comparisons from measured cells, every target's samples side by side. */
@@ -69,13 +76,15 @@ export function tabulate(cells: readonly Cell[]): {
   const comparisons: Comparison[] = []
   for (const { samples, ...cell } of cells) {
     for (const target of TARGETS) {
-      const list = samples[target]
+      const list = samples[target] ?? []
       if (list.length === 0) continue
       rows.push({ ...cell, target, samples: list, ...summarize(list) })
     }
-    if (samples.kirana.length === 0) continue
-    for (const against of ["stylex", "tailwind"] as const) {
-      if (samples[against].length === 0) continue
+    const kirana = samples.kirana ?? []
+    if (kirana.length === 0) continue
+    for (const against of OTHERS) {
+      const other = samples[against] ?? []
+      if (other.length === 0) continue
       const { tier, corpus, scenario, metric, unit } = cell
       comparisons.push({
         tier,
@@ -84,7 +93,7 @@ export function tabulate(cells: readonly Cell[]): {
         metric,
         unit,
         against,
-        ...compareMedians(samples.kirana, samples[against]),
+        ...compareMedians(kirana, other),
       })
     }
   }

@@ -33,7 +33,8 @@ Older results, from before this lab measured releases, are in [`results.md`](res
 ## The build benchmark
 
 ```bash
-bun run bench:builds kirana=$PWD stylex=$PWD/baselines/stylex tailwind=$PWD/baselines/tailwind \
+bun run bench:builds kirana=$PWD stylex=$PWD/baselines/stylex \
+  stylex-swc=$PWD/baselines/stylex-swc tailwind=$PWD/baselines/tailwind \
   --apps web,blocks,examples --rounds 10 --json builds.json
 ```
 
@@ -52,11 +53,11 @@ Build size says nothing about the work a page does when someone uses it. A style
 the browser to match more selectors per element than one of composed classes, and `:where()` and
 relation selectors ask for more again. This measures whether that shows up.
 
-**What it does.** Opens the same route in the Kirana, StyleX and Tailwind builds — the same markup,
-because conformance proves it — and for each:
+**What it does.** Opens the same route in the Kirana, StyleX (Babel and SWC) and Tailwind builds —
+the same markup, because conformance proves it — and for each:
 
 1. grows the page by cloning its main content until it holds at least `--elements` elements (6,000 by
-   default), so all three end up within a few elements of each other;
+   default), so every build ends up within a few elements of the others;
 2. learns how _that build_ switches colour scheme, by clicking the control every build has
    (`aria-label="Colour scheme"`) and recording what changed on the root element. Toggling one
    hard-coded class would invalidate the Kirana build and do nothing to the others, which is the
@@ -67,10 +68,9 @@ because conformance proves it — and for each:
 4. samples frame times across forty animation frames of the same switch, and reports p95.
 
 The CPU is throttled (4× and 6×) because a desktop hides exactly the differences being looked for,
-and rounds are interleaved across the three builds so that a machine that warms up does it to all of
-them.
+and rounds are interleaved across the builds so that a machine that warms up does it to all of them.
 
-**What to prepare.** The same three builds as conformance (`conformance/README.md`), and Chrome —
+**What to prepare.** The same builds as conformance (`conformance/README.md`), and Chrome —
 `KIRANA_CHROME_CHANNEL=chrome` for an installed one, or `bunx playwright install chromium`.
 
 **How to read it.** KRN-PERF-006 asks that Kirana's style recalculation and frame times are _not
@@ -78,15 +78,15 @@ worse_ than the StyleX port's. Treat a difference under about 10 % as noise on a
 the two produce one class per declaration and match a similar number of selectors per element, so
 they should land close. A large gap in either direction is a finding worth chasing.
 
-| Option       | Default | What it does                                                  |
-| ------------ | ------- | ------------------------------------------------------------- |
-| `--app`      | `web`   | Which app to open                                             |
-| `--route`    | `/`     | Which route; it must carry the toggle                         |
-| `--serve`    | off     | Start and stop the three preview servers                      |
-| `--rounds`   | `5`     | Interleaved rounds per build                                  |
-| `--throttle` | `4,6`   | CPU throttling rates                                          |
-| `--elements` | `6000`  | Grow the page to at least this many nodes                     |
-| `--also`     | —       | `label=path/to/app`: another build, measured beside the three |
+| Option       | Default | What it does                                                 |
+| ------------ | ------- | ------------------------------------------------------------ |
+| `--app`      | `web`   | Which app to open                                            |
+| `--route`    | `/`     | Which route; it must carry the toggle                        |
+| `--serve`    | off     | Start and stop the four preview servers                      |
+| `--rounds`   | `5`     | Interleaved rounds per build                                 |
+| `--throttle` | `4,6`   | CPU throttling rates                                         |
+| `--elements` | `6000`  | Grow the page to at least this many nodes                    |
+| `--also`     | —       | `label=path/to/app`: another build, measured beside the four |
 
 **Investigating a difference.** Absolute times move with whatever else the machine is doing, so two
 runs cannot be compared — only the ratios within one run. To test _why_ a build is slower, build the

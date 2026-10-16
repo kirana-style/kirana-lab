@@ -4,6 +4,7 @@
  * appears here only as `results.json` has it, and a difference is called one only when its
  * confidence interval excludes 1.0; there are no medals.
  */
+import { OTHERS, TARGETS } from "./results.ts"
 import type { Comparison, Results, Row, Target } from "./results.ts"
 
 /** Every measure a report shows, in order, with how it reads. Lower is better for all of them. */
@@ -36,8 +37,15 @@ export const MEASURES: Record<
 const NAMES: Record<Target, string> = {
   kirana: "Kirana",
   stylex: "StyleX",
+  "stylex-swc": "StyleX (SWC)",
   tailwind: "Tailwind CSS",
 }
+
+/** "A, B and C". */
+const list = (names: string[]) =>
+  names.length < 2
+    ? names.join("")
+    : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 
 export function formatValue(value: number, unit: string): string {
   if (!Number.isFinite(value)) return "–"
@@ -78,7 +86,12 @@ export function formatRatio(comparison: Comparison | undefined): string {
 const key = (corpus: string, scenario: string, metric: string) =>
   `${corpus}|${scenario}|${metric}`
 
-function table(results: Results, corpus: string, scenario: string): string[] {
+function table(
+  results: Results,
+  corpus: string,
+  scenario: string,
+  shown: readonly Target[]
+): string[] {
   const rows = new Map<string, Row>(
     results.rows.map((row) => [
       `${key(row.corpus, row.scenario, row.metric)}|${row.target}`,
@@ -95,15 +108,16 @@ function table(results: Results, corpus: string, scenario: string): string[] {
     rows.has(`${key(corpus, scenario, metric)}|kirana`)
   )
   if (metrics.length === 0) return []
+  const others = shown.filter((target) => target !== "kirana")
   return [
-    "| Measure | Kirana | StyleX | Tailwind CSS | Kirana ÷ StyleX | Kirana ÷ Tailwind |",
-    "| --- | --- | --- | --- | --- | --- |",
+    `| Measure | ${shown.map((target) => NAMES[target]).join(" | ")} | ${others.map((target) => `Kirana ÷ ${NAMES[target]}`).join(" | ")} |`,
+    `| --- |${" --- |".repeat(shown.length + others.length)}`,
     ...metrics.map((metric) => {
       const at = (target: Target) =>
         rows.get(`${key(corpus, scenario, metric)}|${target}`)
       const versus = (against: string) =>
         comparisons.get(`${key(corpus, scenario, metric)}|${against}`)
-      return `| ${MEASURES[metric]!.label} | ${cell(at("kirana"))} | ${cell(at("stylex"))} | ${cell(at("tailwind"))} | ${formatRatio(versus("stylex"))} | ${formatRatio(versus("tailwind"))} |`
+      return `| ${MEASURES[metric]!.label} | ${shown.map((target) => cell(at(target))).join(" | ")} | ${others.map((target) => formatRatio(versus(target))).join(" | ")} |`
     }),
     "",
   ]
@@ -147,12 +161,20 @@ export function renderReport(results: Results): string {
         .map((row) => `${row.corpus}|${row.scenario}`)
     ),
   ]
+  // The implementations this run measured, in their usual order.
+  const measured = new Set(results.rows.map((row) => row.target))
+  const shown = TARGETS.filter((target) => measured.has(target))
+  const against = list(
+    OTHERS.filter((target) => measured.has(target)).map(
+      (target) => NAMES[target]
+    )
+  )
   const targets = Object.entries(meta.targets)
     .map(([name, version]) => `\`${name}\` ${version}`)
     .join(", ")
 
   const lines = [
-    `# Kirana ${meta.kirana}, measured against StyleX and Tailwind CSS`,
+    `# Kirana ${meta.kirana}, measured against ${against}`,
     "",
     ...(failed.length > 0
       ? [
@@ -198,7 +220,7 @@ export function renderReport(results: Results): string {
     ...corpora.flatMap((corpus) => [
       `### ${corpusName(corpus)}`,
       "",
-      ...table(results, corpus, "build"),
+      ...table(results, corpus, "build", shown),
     ]),
     ...(runtime.length > 0 ? ["## In the browser", ""] : []),
     ...runtime.flatMap((entry) => {
@@ -206,12 +228,17 @@ export function renderReport(results: Results): string {
       return [
         `### ${corpusName(corpus)}, ${scenario}`,
         "",
-        ...table(results, corpus, scenario),
+        ...table(results, corpus, scenario, shown),
       ]
     }),
     "## Method",
     "",
-    "- **Builds** are each app's own `vite build`, cold (its `dist` and Vite cache removed first), interleaved so a round builds Kirana, StyleX and Tailwind CSS in turn.",
+    `- **Builds** are each app's own \`vite build\`, cold (its \`dist\` and Vite cache removed first), interleaved so a round builds ${list(shown.map((target) => NAMES[target]))} in turn.`,
+    ...(measured.has("stylex-swc")
+      ? [
+          "- **StyleX (SWC)** builds the StyleX sources with `@stylexswc/unplugin`, the Rust compiler, in place of the Babel plugin; conformance compares it with the Babel build.",
+        ]
+      : []),
     "- **Sizes** are every client asset of the type, each compressed on its own as a browser receives it: gzip at level 9, brotli at quality 11.",
     "- **In the browser**, the page is grown to the same number of elements in each build, the CPU is throttled, and the renderer's own counters are read through the DevTools protocol.",
     meta.runner

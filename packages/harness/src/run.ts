@@ -55,6 +55,7 @@ const out = path.resolve(
 const roots: Record<Target, string> = {
   kirana: ROOT,
   stylex: path.join(ROOT, "baselines/stylex"),
+  "stylex-swc": path.join(ROOT, "baselines/stylex-swc"),
   tailwind: path.join(ROOT, "baselines/tailwind"),
 }
 

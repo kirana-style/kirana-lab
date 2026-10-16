@@ -9,14 +9,35 @@ anyone may quote it. Every rule here is written so that a reader can check it ag
 One application set, written three times: a demo page (`apps/web`), sixty-odd shadcn/ui blocks
 (`apps/blocks`) and a page per component (`apps/examples`).
 
-| Implementation | Where                | Styling                                           |
-| -------------- | -------------------- | ------------------------------------------------- |
-| Kirana         | the repository root  | `@kirana-style/*` from npm, at the pinned release |
-| StyleX         | `baselines/stylex`   | `@stylexjs/stylex` with `@stylexjs/unplugin`      |
-| Tailwind CSS   | `baselines/tailwind` | `tailwindcss` 4 with `@tailwindcss/vite`          |
+| Implementation | Where                  | Styling                                               |
+| -------------- | ---------------------- | ----------------------------------------------------- |
+| Kirana         | the repository root    | `@kirana-style/*` from npm, at the pinned release     |
+| StyleX         | `baselines/stylex`     | `@stylexjs/stylex` with `@stylexjs/unplugin` (Babel)  |
+| StyleX (SWC)   | `baselines/stylex-swc` | the StyleX sources, compiled by `@stylexswc/unplugin` |
+| Tailwind CSS   | `baselines/tailwind`   | `tailwindcss` 4 with `@tailwindcss/vite`              |
 
-The markup is the same in all three; the conformance harness proves it by comparing the computed
+The markup is the same in all of them; the conformance harness proves it by comparing the computed
 styles of every element, on every route, at three widths, in both colour schemes.
+
+### StyleX, compiled two ways
+
+StyleX has two compilers: its own Babel plugin, and the Rust compiler built on SWC
+(`@stylexswc/unplugin`), which is faster. Both are measured, so a comparison with StyleX never
+depends on which one a reader would pick.
+
+- **Same sources.** `baselines/stylex-swc` holds only its Vite setup, manifest and lockfile;
+  `scripts/sync-stylex-swc.ts` copies the apps and packages from `baselines/stylex` before it
+  installs, so the two cannot drift apart.
+- **Same options.** The Babel baseline's `useCSSLayers`, `sxPropName`, `dev` and
+  `unstable_moduleResolution`, the last three under the SWC plugin's `rsOptions`.
+- **Where the rules go.** Under TanStack Start nothing links the stylesheet the SWC plugin writes on
+  its own, so it uses its documented `useCssPlaceholder` mode: the rules go where the shared
+  `globals.css` has an `@stylex;` marker. The marker is added by a small Vite plugin in the SWC
+  setup, so the file itself stays the Babel baseline's.
+- **Minification.** The Babel plugin minifies its rules with Lightning CSS; the SWC plugin minifies
+  the rules it injects with esbuild, its optional dependency, after Vite has minified the rest.
+- **Conformance.** The SWC build is compared with the Babel build, with no exceptions: both compile
+  the same sources, so any difference is the compiler's.
 
 ## Tiers
 
@@ -29,15 +50,15 @@ styles of every element, on every route, at three widths, in both colour schemes
 
 ## Fairness rules
 
-1. **Same inputs.** Every dependency the three share is at one exact version (`versions.json`), and
-   `scripts/fairness.ts` compares what the three lockfiles actually resolved. Anything they cannot
+1. **Same inputs.** Every dependency the implementations share is at one exact version
+   (`versions.json`), and `scripts/fairness.ts` compares what their lockfiles actually resolved. Anything they cannot
    share is listed with its reason.
 2. **Published versions.** Every implementation is measured as users install it: StyleX, Tailwind
    and Kirana from npm, at versions recorded in the result. Kirana is never measured from source.
 3. **Recommended configuration.** Each uses its documented production setup, minified.
 4. **Direct builds.** Each app's own `vite build`, never through a task cache.
 5. **Cold builds labelled.** Caches are removed before a cold build.
-6. **One machine, one session.** The three are measured on the same machine in the same run, and
+6. **One machine, one session.** All of them are measured on the same machine in the same run, and
    numbers from different runs are never compared.
 7. **Feature parity.** Where one cannot express what the others do, the result says so.
 8. **Correctness first.** An implementation's numbers count only if its conformance run passed.
@@ -47,8 +68,8 @@ styles of every element, on every route, at three widths, in both colour schemes
 ## Statistics
 
 - **Rounds.** At least 10 rounds per build after a warm-up, and at least 20 per runtime scenario.
-- **Interleaving.** Kirana, StyleX and Tailwind take turns within a round, so a machine that warms up
-  or slows down does it to all three.
+- **Interleaving.** The implementations take turns within a round, so a machine that warms up or
+  slows down does it to all of them.
 - **Summary.** Median, p95, minimum, maximum and standard deviation, with every raw sample kept.
 - **Comparison.** The ratio of medians with a bootstrapped 95 % confidence interval (fixed seed,
   10,000 resamples). A difference is reported as one only when the interval excludes 1.0; otherwise
