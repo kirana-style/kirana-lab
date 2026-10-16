@@ -8,6 +8,7 @@
     "session": "bun src/run.ts",
     "builds": "bun bench/slice.ts",
     "runtime": "bun bench/runtime.ts",
+    "large-dom": "bun bench/large-dom.ts",
     "conformance": "bun conformance/run.ts",
     "test": "vp test run"
   },

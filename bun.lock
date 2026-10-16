@@ -67,6 +67,26 @@
         "vite": "catalog:",
       },
     },
+    "apps/large-dom": {
+      "name": "large-dom",
+      "version": "0.0.1",
+      "dependencies": {
+        "@hugeicons/core-free-icons": "catalog:",
+        "@kirana-style/core": "catalog:",
+        "@tanstack/react-router": "catalog:",
+        "@tanstack/react-start": "catalog:",
+        "@workspace/ui": "workspace:*",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@workspace/vite-config": "workspace:*",
+        "typescript": "catalog:",
+        "vite": "catalog:",
+      },
+    },
     "apps/web": {
       "name": "web",
       "version": "0.0.1",
@@ -892,6 +912,8 @@
     "json5": ["json5@2.2.3", "", { "bin": { "json5": "lib/cli.js" } }, "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg=="],
 
     "kirana-style": ["kirana-style@0.2.1", "", { "dependencies": { "@kirana-style/compiler": "0.2.1" }, "bin": { "kirana-style": "bin/kirana-style.js" } }, "sha512-mla2DaSynDxzgBkIF82ceODw9sDexGW+h5Jhoiv33sYAQ7lFA+HdU3Cl+FAs7L6Y/SFuONYAkOsqqz+TJnFT0Q=="],
+
+    "large-dom": ["large-dom@workspace:apps/large-dom"],
 
     "launch-editor": ["launch-editor@2.14.2", "", { "dependencies": { "picocolors": "^1.1.1", "shell-quote": "^1.10.0" } }, "sha512-NHJEb30MGBCkmZXLZwz25t37QR4aY03ZzPYUJXOJaOa92uWwExI9SBQUuIznBYc1xkD7cJNGX7oc3Nl3sq2kQQ=="],
 

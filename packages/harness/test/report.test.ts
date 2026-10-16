@@ -57,6 +57,7 @@ function results(conformance: Meta["conformance"] = meta.conformance): Results {
 describe("formatting", () => {
   it("formats sizes, times and counts", () => {
     expect(formatValue(72_400, "bytes")).toBe("72.4 kB")
+    expect(formatValue(19_424_500, "bytes")).toBe("19.42 MB")
     expect(formatValue(1410, "ms")).toBe("1.41 s")
     expect(formatValue(14.04, "ms")).toBe("14.0 ms")
     expect(formatValue(11, "count")).toBe("11")
@@ -178,6 +179,43 @@ describe("renderReport", () => {
       "stylex-swc",
       "tailwind",
     ])
+  })
+
+  it("names the large-dom corpus by its size, and says how it was driven", () => {
+    const large = tabulate([
+      {
+        tier: "B",
+        corpus: "large-dom/5000",
+        scenario: "build",
+        metric: "classBytes",
+        unit: "bytes",
+        labels: ["rendered"],
+        samples: { kirana: [2_255_994], stylex: [1_776_591] },
+      },
+      {
+        tier: "C",
+        corpus: "large-dom/5000",
+        scenario: "CPU throttled 4×, about 112608 elements",
+        metric: "filter",
+        unit: "ms",
+        labels: ["throttle-4"],
+        samples: { kirana: [1600, 1610, 1590], stylex: [1100, 1140, 1120] },
+      },
+    ])
+    const report = renderReport({
+      meta: { ...meta, rounds: { ...meta.rounds, largeDom: 3 } },
+      ...large,
+    })
+    expect(report).toContain("### `large-dom`, 5,000 rows")
+    expect(report).toContain(
+      "### `large-dom`, 5,000 rows, CPU throttled 4×, about 112608 elements"
+    )
+    expect(report).toMatch(
+      /\*\*Filter, to the next frame\*\*, `large-dom`, 5,000 rows, CPU throttled 4×/
+    )
+    expect(report).toContain("3 rounds at each large-dom size")
+    expect(report).toContain("- **large-dom** is an order table")
+    expect(renderReport(results())).not.toContain("large-dom")
   })
 
   it("leaves out a target the run did not measure", () => {

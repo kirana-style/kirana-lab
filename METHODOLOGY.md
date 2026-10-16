@@ -19,6 +19,26 @@ One application set, written three times: a demo page (`apps/web`), sixty-odd sh
 The markup is the same in all of them; the conformance harness proves it by comparing the computed
 styles of every element, on every route, at three widths, in both colour schemes.
 
+### large-dom: one big page
+
+A second corpus asks what the styling costs on a page far larger than the demos: an ERP order table
+(`apps/large-dom`), written once per implementation with its own components (a status badge, text
+cells, a select, an icon button, and an Approve button on pending orders only). Its rows come from a
+seeded generator (`src/data/orders.ts`, the same file in every implementation), so a page of
+5,000 rows is the same page in every build and every run.
+
+- **Sizes.** `?rows=` picks 1,000, 5,000, 10,000 or 25,000. A session measures **1,000 and 5,000**:
+  on a hosted runner 10,000 rows take minutes per round and 25,000 take minutes to load, which
+  would make a session longer than GitHub allows. `--large-dom-sizes` runs them by hand.
+- **Each round** filters the table to Overdue and back to All, each timed from the click to the
+  next frame with the renderer's recalculation and layout time; scrolls through it one step a
+  frame, for the p95 frame time; moves the pointer across rows; and reads the heap after a garbage
+  collection. Each build's page is loaded once per size, and the rounds interleave the builds.
+- **Size of the page.** The HTML the server sent and the bytes of its `class` attributes, where
+  an atomic stylesheet's cost moves to, beside the app's CSS and JavaScript.
+- **Conformance** compares the table at 40 rows, the same rules as the other apps: its rows differ
+  only in their data.
+
 ### StyleX, compiled two ways
 
 StyleX has two compilers: its own Babel plugin, and the Rust compiler built on SWC

@@ -12,7 +12,7 @@ a number must have before it can be quoted.
 
 | Path                                  | What it is                                                                        |
 | ------------------------------------- | --------------------------------------------------------------------------------- |
-| `apps/`                               | The Kirana implementation: `web`, `blocks` and `examples`                         |
+| `apps/`                               | The Kirana implementation: `web`, `blocks`, `examples` and `large-dom`            |
 | `packages/ui`, `shell`, `vite-config` | Their components and shared Vite setup                                            |
 | `baselines/stylex`                    | The same apps with StyleX, a workspace of its own with its own lockfile           |
 | `baselines/stylex-swc`                | The StyleX apps compiled by SWC: its own Vite setup and lockfile, the apps copied |
@@ -49,7 +49,7 @@ When a shared dependency moves, change it in `versions.json`, then `bun run vers
 differently. After changing the StyleX baseline, `bun run sync-stylex-swc` copies it again.
 
 `bun run bench` builds every app cold for 10 interleaved rounds, checks conformance, measures the
-browser, and writes `results.json` (every raw sample) and `report.md`. The harness's own guides:
+browser, drives the large-dom table at 1,000 and 5,000 rows, and writes `results.json` (every raw sample) and `report.md`. The harness's own guides:
 [benchmarks](packages/harness/bench/README.md) and
 [conformance](packages/harness/conformance/README.md).
 
