@@ -66,14 +66,32 @@ function cell(row: Row | undefined): string {
     : `${value} <sub>${formatValue(row.min, row.unit)}–${formatValue(row.max, row.unit)}</sub>`
 }
 
+/**
+ * A ratio and its interval as text, to two places, or three when two would show one of them as
+ * 1.00: a real difference of 0.4 % must not read as "1.00× higher".
+ */
+export function ratioParts({
+  ratio,
+  low,
+  high,
+}: Pick<Comparison, "ratio" | "low" | "high">): [string, string, string] {
+  const values = [ratio, low, high]
+  const places = values.some((value) => value.toFixed(2) === "1.00") ? 3 : 2
+  return values.map((value) => value.toFixed(places)) as [
+    string,
+    string,
+    string,
+  ]
+}
+
 export function formatRatio(comparison: Comparison | undefined): string {
   if (!comparison) return "–"
-  const { ratio, low, high, verdict } = comparison
+  const { low, high, verdict } = comparison
+  const [ratio, lowText, highText] = ratioParts(comparison)
   if (MEASURES[comparison.metric]?.judged === false)
-    return `${ratio.toFixed(2)}× not judged`
-  const shown = `${ratio.toFixed(2)}×`
-  const interval =
-    low === high ? "" : ` <sub>${low.toFixed(2)}–${high.toFixed(2)}</sub>`
+    return `${ratio}× not judged`
+  const shown = `${ratio}×`
+  const interval = low === high ? "" : ` <sub>${lowText}–${highText}</sub>`
   const word =
     verdict === "lower"
       ? "lower"
@@ -208,11 +226,13 @@ export function renderReport(results: Results): string {
     ...(behind.length === 0
       ? ["In this run, no measure has Kirana higher with confidence.", ""]
       : [
-          ...behind.map(
-            (comparison) =>
+          ...behind.map((comparison) => {
+            const [ratio, low, high] = ratioParts(comparison)
+            return (
               `- **${MEASURES[comparison.metric]?.label ?? comparison.metric}**, ${corpusName(comparison.corpus)}${comparison.scenario === "build" ? "" : `, ${comparison.scenario}`}: ` +
-              `${comparison.ratio.toFixed(2)}× ${NAMES[comparison.against]} (${comparison.low.toFixed(2)}–${comparison.high.toFixed(2)}).`
-          ),
+              `${ratio}× ${NAMES[comparison.against]} (${low}–${high}).`
+            )
+          }),
           "",
         ]),
     "## Build and output",
@@ -242,7 +262,7 @@ export function renderReport(results: Results): string {
     "- **Sizes** are every client asset of the type, each compressed on its own as a browser receives it: gzip at level 9, brotli at quality 11.",
     "- **In the browser**, the page is grown to the same number of elements in each build, the CPU is throttled, and the renderer's own counters are read through the DevTools protocol.",
     meta.runner
-      ? "- **The machine** is a shared CI runner, so absolute times move from run to run; compare the ratios within this run, never numbers from two runs."
+      ? "- **The machine** is a shared CI runner, and GitHub may give another run a different processor (this run's is under Machine above), so absolute times move from run to run; compare the ratios within this run, never numbers from two runs."
       : "- **The machine** is a developer's, not a CI runner: these numbers are for checking the lab, not for quoting.",
     "- **Style rules and declarations** are shown without a verdict: an atomic stylesheet always has more, smaller rules, and what that costs is measured by the sizes and the browser times.",
     "- The rules a quoted number has to meet are in METHODOLOGY.md, and every raw sample is in `results.json` beside this file.",

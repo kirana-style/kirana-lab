@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { formatRatio, formatValue, renderReport } from "../src/report.ts"
+import {
+  formatRatio,
+  formatValue,
+  ratioParts,
+  renderReport,
+} from "../src/report.ts"
 import { tabulate } from "../src/results.ts"
 import type { Meta, Results } from "../src/results.ts"
 
@@ -74,6 +79,28 @@ describe("formatting", () => {
       })
     ).toBe("0.33× <sub>0.32–0.34</sub> lower")
     expect(formatRatio(undefined)).toBe("–")
+  })
+
+  it("gives three places when two would show a real difference as 1.00", () => {
+    expect(
+      formatRatio({
+        ratio: 1.003,
+        low: 1.002,
+        high: 1.004,
+        verdict: "higher",
+        tier: "B",
+        corpus: "",
+        scenario: "",
+        metric: "jsGzip",
+        unit: "bytes",
+        against: "tailwind",
+      })
+    ).toBe("1.003× <sub>1.002–1.004</sub> **higher**")
+    expect(ratioParts({ ratio: 1.04, low: 1.001, high: 1.08 })).toEqual([
+      "1.040",
+      "1.001",
+      "1.080",
+    ])
   })
 })
 
