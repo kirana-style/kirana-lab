@@ -74,10 +74,12 @@ function buildOnce(label: string, directory: string) {
     force: true,
   })
   const started = performance.now()
-  const result = spawnSync("bun", ["run", "build", "--logLevel", "silent"], {
-    cwd: directory,
-    stdio: ["ignore", "ignore", "inherit"],
-  })
+  // `--silent` keeps Bun from echoing the script, so the log names each build instead.
+  const result = spawnSync(
+    "bun",
+    ["run", "--silent", "build", "--logLevel", "silent"],
+    { cwd: directory, stdio: ["ignore", "ignore", "inherit"] }
+  )
   const build = performance.now() - started
   if (result.status !== 0)
     throw new Error(`${label}: the build failed in ${directory}`)
@@ -149,6 +151,7 @@ export function measureBuilds({
     for (const app of apps) {
       for (const [label, root] of labels) {
         const measured = buildOnce(label, path.join(root, "apps", app))
+        log(`  ${label} ${app}: ${(measured.build / 1000).toFixed(2)} s`)
         if (round < 0) continue
         for (const [metric, value] of Object.entries(measured))
           results[app]![label]![metric as BuildMetric].push(value)
