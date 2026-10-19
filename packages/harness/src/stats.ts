@@ -78,12 +78,17 @@ export type Ratio = {
 /**
  * The ratio of `kirana`'s median to `other`'s, with its bootstrapped 95 % interval. Lower is lower
  * for Kirana: a ratio of 0.4 is Kirana at 40 % of the other.
+ *
+ * `undefined` when the ratio or either end of its interval is not a finite number: a measure that
+ * is often 0 (style recalculation while scrolling) can have a median of 0, or enough resamples with
+ * one to leave the interval unbounded. There is no ratio to state then, and JSON would write the
+ * infinity as `null`.
  */
 export function compareMedians(
   kirana: readonly number[],
   other: readonly number[],
   { resamples = 10_000, seed = 1 } = {}
-): Ratio {
+): Ratio | undefined {
   const ratio = median(kirana) / median(other)
   const random = generator(seed)
   const pick = (values: readonly number[]) => {
@@ -97,9 +102,11 @@ export function compareMedians(
     { length: resamples },
     () => pick(kirana) / pick(other)
   )
+  if (ratios.some(Number.isNaN)) return undefined
   const sorted = ascending(ratios)
   const low = quantile(sorted, 0.025)
   const high = quantile(sorted, 0.975)
+  if (![ratio, low, high].every(Number.isFinite)) return undefined
   const verdict: Verdict =
     high < 1 ? "lower" : low > 1 ? "higher" : "no clear difference"
   return { ratio, low, high, verdict }

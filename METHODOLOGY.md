@@ -147,6 +147,9 @@ Kirana both ways, from the release that has it (`packages/harness/src/targets.ts
   of those ratios. A size is the same in every round, so its interval is the ratio itself, and the
   report shows it without one. A difference is reported as one only when the interval excludes 1.0; otherwise
   it is "no clear difference".
+- **Nothing to divide by.** A measure that is often 0, such as style recalculation while scrolling,
+  can have a median of 0, or an interval a 0 leaves unbounded. Such a cell states no ratio: its
+  medians are shown, and the comparison is left out rather than written as infinity.
 - **Outliers.** Never removed silently: an exclusion is listed with its reason.
 
 ## The machine

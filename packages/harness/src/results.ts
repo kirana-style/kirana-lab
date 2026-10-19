@@ -112,6 +112,9 @@ export function tabulate(cells: readonly Cell[]): {
     for (const against of OTHERS) {
       const other = samples[against] ?? []
       if (other.length === 0) continue
+      const ratio = compareMedians(kirana, other)
+      // No ratio to state (`compareMedians`): the rows still show both medians.
+      if (!ratio) continue
       const { tier, corpus, scenario, metric, unit } = cell
       comparisons.push({
         tier,
@@ -120,7 +123,7 @@ export function tabulate(cells: readonly Cell[]): {
         metric,
         unit,
         against,
-        ...compareMedians(kirana, other),
+        ...ratio,
       })
     }
   }
