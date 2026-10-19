@@ -13,6 +13,12 @@ import viteReact from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
 /**
+ * The harness's `kirana-dense` target builds these same apps with dense class names, into
+ * `dist-dense`, so its build sits beside the hashed one (packages/harness/src/targets.ts).
+ */
+const dense = process.env.KIRANA_LAB_NAMES === "dense"
+
+/**
  * @returns {import("vite").UserConfigFnObject}
  */
 export function defineAppConfig() {
@@ -26,10 +32,14 @@ export function defineAppConfig() {
       devtools({ consolePiping: { enabled: false } }),
       // Ahead of the framework plugins, so modules reach them already compiled.
       // Layers, targets and diagnostics come from each app's kirana.config.ts.
-      kirana(),
+      kirana(dense ? { names: "dense" } : {}),
       tanstackStart({ router: { quoteStyle: "double", semicolons: false } }),
       viteReact(),
     ],
-    build: { cssMinify: true, minify: true },
+    build: {
+      cssMinify: true,
+      minify: true,
+      ...(dense ? { outDir: "dist-dense" } : {}),
+    },
   }))
 }

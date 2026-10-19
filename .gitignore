@@ -2,6 +2,8 @@ node_modules
 .DS_Store
 dist
 dist-ssr
+# The harness's kirana-dense build (packages/harness/src/targets.ts).
+dist-dense
 *.local
 .env*
 .tanstack

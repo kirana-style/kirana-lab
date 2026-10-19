@@ -9,12 +9,13 @@ anyone may quote it. Every rule here is written so that a reader can check it ag
 One application set, written three times: a demo page (`apps/web`), sixty-odd shadcn/ui blocks
 (`apps/blocks`) and a page per component (`apps/examples`).
 
-| Implementation | Where                  | Styling                                               |
-| -------------- | ---------------------- | ----------------------------------------------------- |
-| Kirana         | the repository root    | `@kirana-style/*` from npm, at the pinned release     |
-| StyleX         | `baselines/stylex`     | `@stylexjs/stylex` with `@stylexjs/unplugin` (Babel)  |
-| StyleX (SWC)   | `baselines/stylex-swc` | the StyleX sources, compiled by `@stylexswc/unplugin` |
-| Tailwind CSS   | `baselines/tailwind`   | `tailwindcss` 4 with `@tailwindcss/vite`              |
+| Implementation       | Where                  | Styling                                                 |
+| -------------------- | ---------------------- | ------------------------------------------------------- |
+| Kirana               | the repository root    | `@kirana-style/*` from npm, at the pinned release       |
+| Kirana (dense names) | the repository root    | the same, built with `names: "dense"` into `dist-dense` |
+| StyleX               | `baselines/stylex`     | `@stylexjs/stylex` with `@stylexjs/unplugin` (Babel)    |
+| StyleX (SWC)         | `baselines/stylex-swc` | the StyleX sources, compiled by `@stylexswc/unplugin`   |
+| Tailwind CSS         | `baselines/tailwind`   | `tailwindcss` 4 with `@tailwindcss/vite`                |
 
 The markup is the same in all of them; the conformance harness proves it by comparing the computed
 styles of every element, on every route, at three widths, in both colour schemes.
@@ -56,7 +57,8 @@ measure at every size, a curve, never one point.
   StyleX sources.
 - **Tailwind is told where they are.** Tailwind does not scan git-ignored files, so its app's
   stylesheet adds `@source "./generated"` to the shared one: its documented way to name them.
-- **Conformance** compares the 100-component page: 0 differences against StyleX and StyleX (SWC).
+- **Conformance** compares every size's page, every component on it, right after that size's builds:
+  a size or build-time result at 10,000 components compares like with like.
 - **Its own job in CI.** StyleX's Babel build of 10,000 components takes minutes each round, so the
   curve runs beside the session on a runner of its own. Its four implementations are compared on
   that one machine, which the report names; `src/merge.ts` joins the two files.
@@ -93,6 +95,20 @@ depends on which one a reader would pick.
 - **Conformance.** The SWC build is compared with the Babel build, with no exceptions: both compile
   the same sources, so any difference is the compiler's.
 
+### Kirana, with two ways of naming
+
+Kirana 0.2.3 added dense class names (`names: "dense"`): a production build replaces the hashes in
+its class names with short codes assigned from the whole build. It is opt-in, so the lab measures
+Kirana both ways, from the release that has it (`packages/harness/src/targets.ts`).
+
+- **Same apps, same sources.** `kirana-dense` is the repository root built a second time with
+  `KIRANA_LAB_NAMES=dense`. `packages/vite-config` reads it, passes `names: "dense"` and writes the
+  build to `dist-dense`, so the two builds sit side by side and interleave like any two targets.
+- **Conformance.** The dense build is compared with the hashed one, with no exceptions: both compile
+  the same sources, so any difference is the renaming's.
+- **How it reads.** The tables show its medians beside the others, and its ratios have a section of
+  their own, dense ÷ hashed, so they never count as Kirana being behind.
+
 ## Tiers
 
 | Tier            | What it measures                                                                                      |
@@ -126,7 +142,10 @@ depends on which one a reader would pick.
   slows down does it to all of them.
 - **Summary.** Median, p95, minimum, maximum and standard deviation, with every raw sample kept.
 - **Comparison.** The ratio of medians with a bootstrapped 95 % confidence interval (fixed seed,
-  10,000 resamples). A difference is reported as one only when the interval excludes 1.0; otherwise
+  10,000 resamples). The bootstrap is unpaired: each side's rounds are resampled on their own, the
+  ratio of the two resampled medians is taken, and the interval is the 2.5th to 97.5th percentile
+  of those ratios. A size is the same in every round, so its interval is the ratio itself, and the
+  report shows it without one. A difference is reported as one only when the interval excludes 1.0; otherwise
   it is "no clear difference".
 - **Outliers.** Never removed silently: an exclusion is listed with its reason.
 

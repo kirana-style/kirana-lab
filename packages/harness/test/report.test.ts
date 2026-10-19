@@ -269,6 +269,59 @@ describe("renderReport", () => {
     expect(report).not.toContain("SWC")
   })
 
+  it("shows dense names as dense ÷ hashed, and never as Kirana behind", () => {
+    const report = renderReport({
+      meta,
+      ...tabulate([
+        {
+          tier: "B",
+          corpus: "three-way/total",
+          scenario: "build",
+          metric: "cssGzip",
+          unit: "bytes",
+          labels: ["minified"],
+          samples: {
+            kirana: [64_000, 64_000, 64_000],
+            "kirana-dense": [51_200, 51_200, 51_200],
+            stylex: [62_800, 62_800, 62_800],
+          },
+        },
+        {
+          tier: "B",
+          corpus: "large-dom/1000",
+          scenario: "build",
+          metric: "classBytes",
+          unit: "bytes",
+          labels: ["rendered"],
+          samples: {
+            kirana: [2_260_000],
+            "kirana-dense": [1_582_000],
+            stylex: [1_780_000],
+          },
+        },
+      ]),
+    })
+    expect(report).toContain("# Kirana 0.2.0, measured against StyleX\n")
+    expect(report).toContain("## Dense names")
+    expect(report).toContain("| All apps | CSS, gzip | 0.80× |")
+    expect(report).toContain(
+      "| `large-dom`, 1,000 rows | `class` attributes | 0.70× |"
+    )
+    // Hashed Kirana is higher than its dense build, which is no loss of Kirana's.
+    const behind = report.slice(
+      report.indexOf("## Where Kirana is behind"),
+      report.indexOf("## Dense names")
+    )
+    expect(behind).not.toContain("dense")
+    expect(behind).toContain("StyleX")
+    expect(report).toContain("- **Kirana (dense names)** is the Kirana corpus")
+    expect(report).toContain(
+      "| Measure | Kirana | Kirana (dense names) | StyleX | Kirana ÷ StyleX |"
+    )
+    expect(report).not.toContain("Kirana ÷ Kirana")
+    expect(renderReport(results())).not.toContain("Dense names")
+  })
+
   it("has no medals", () => {
     expect(renderReport(results())).not.toMatch(/🥇|🥈|🥉/)
   })

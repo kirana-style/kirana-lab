@@ -1,7 +1,8 @@
 /**
  * Runs the conformance comparisons for one app: the Kirana build against the StyleX port and against
  * the Tailwind original, and the StyleX port compiled by SWC against the same port compiled by Babel
- * (packages/harness/conformance/README.md).
+ * (packages/harness/conformance/README.md). With `--dense`, also the Kirana build with dense class
+ * names against the hashed one (`src/targets.ts`), on ports 3020–3024 (`KIRANA_DENSE_URL`).
  *
  *   bun conformance/run.ts [--app web|blocks|examples|large-dom|scale-curve] [--serve] [--shard 1/3] [--states] [--motion]
  *
@@ -26,12 +27,15 @@
  * `--states` compares interactive states on those routes instead of pages at rest.
  * The StyleX comparison treats a difference where Kirana matches the Tailwind original as a
  * correction, and the Tailwind comparison treats one the StyleX port shares as inherited. The SWC
- * comparison has no arbiter: both compile the same sources, so any difference is the compiler's.
+ * comparison has no arbiter: both compile the same sources, so any difference is the compiler's;
+ * nor has the dense one, whose builds differ only in their class names.
  */
 import { spawn, spawnSync } from "node:child_process"
 import type { ChildProcess } from "node:child_process"
 import { existsSync } from "node:fs"
 import path from "node:path"
+
+import { VARIANTS } from "../src/targets.ts"
 
 const APPS = {
   web: 0,
@@ -65,7 +69,14 @@ if (!(app in APPS)) {
 }
 const offset = APPS[app]
 const repository = path.resolve(import.meta.dirname, "../../..")
-const builds = {
+const dense = args.includes("--dense")
+type Build = {
+  url: string
+  directory: string
+  dist?: string
+  env?: Record<string, string>
+}
+const builds: Record<string, Build> = {
   kirana: {
     url: process.env.KIRANA_URL ?? `http://localhost:${3000 + offset}`,
     directory: path.join(repository, "apps", app),
@@ -100,10 +111,20 @@ const builds = {
       app
     ),
   },
+  ...(dense
+    ? {
+        "kirana-dense": {
+          url:
+            process.env.KIRANA_DENSE_URL ?? `http://localhost:${3020 + offset}`,
+          directory: path.join(repository, "apps", app),
+          ...VARIANTS["kirana-dense"],
+        },
+      }
+    : {}),
 }
 
 // Options this script consumes; everything else goes to compare.ts.
-const own = new Set(["--app", "--serve"])
+const own = new Set(["--app", "--serve", "--dense"])
 const passed = args.filter(
   (arg, index) => !own.has(arg) && args[index - 1] !== "--app"
 )
@@ -121,9 +142,10 @@ function stop(servers: ChildProcess[]) {
 async function serve(): Promise<ChildProcess[]> {
   const servers: ChildProcess[] = []
   for (const [name, build] of Object.entries(builds)) {
-    if (!existsSync(path.join(build.directory, "dist"))) {
+    const dist = build.dist ?? "dist"
+    if (!existsSync(path.join(build.directory, dist))) {
       console.error(
-        `${name}: no build in ${build.directory}/dist — build it first (see conformance/README.md)`
+        `${name}: no build in ${build.directory}/${dist} — build it first (see conformance/README.md)`
       )
       process.exit(2)
     }
@@ -132,6 +154,7 @@ async function serve(): Promise<ChildProcess[]> {
       // Its own process group, so stopping it stops the Vite process `bunx` starts too.
       spawn("bunx", ["vite", "preview", "--port", port, "--strictPort"], {
         cwd: build.directory,
+        env: { ...process.env, ...build.env },
         stdio: "ignore",
         detached: true,
       })
@@ -161,17 +184,22 @@ let failed = false
 for (const [label, actual, expected, arbiter] of [
   [
     "stylex",
-    builds.kirana.url,
-    builds.stylex.url,
-    ["--original", builds.tailwind.url],
+    builds.kirana!.url,
+    builds.stylex!.url,
+    ["--original", builds.tailwind!.url],
   ],
   [
     "tailwind",
-    builds.kirana.url,
-    builds.tailwind.url,
-    ["--port-of", builds.stylex.url],
+    builds.kirana!.url,
+    builds.tailwind!.url,
+    ["--port-of", builds.stylex!.url],
   ],
-  ["stylex-swc", builds["stylex-swc"].url, builds.stylex.url, []],
+  ["stylex-swc", builds["stylex-swc"]!.url, builds.stylex!.url, []],
+  ...(dense
+    ? ([
+        ["kirana-dense", builds["kirana-dense"]!.url, builds.kirana!.url, []],
+      ] as const)
+    : []),
 ] as const) {
   const shard = option("shard")?.replace("/", "-of-")
   const suffix = args.includes("--states") ? "-states" : ""

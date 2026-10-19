@@ -36,6 +36,8 @@ import path from "node:path"
 import { chromium } from "playwright"
 import type { Browser, CDPSession, Page } from "playwright"
 
+import { VARIANTS } from "../src/targets.ts"
+
 const repository = path.resolve(import.meta.dirname, "../../..")
 
 /** The sizes a session measures by default; 25,000 is opt-in (see above). */
@@ -43,6 +45,12 @@ export const SIZES = [1000, 5000, 10000]
 
 const BUILDS = {
   kirana: { port: 3003, directory: "apps/large-dom" },
+  // The Kirana app built with dense class names, beside the hashed build (`src/targets.ts`).
+  "kirana-dense": {
+    port: 3013,
+    directory: "apps/large-dom",
+    ...VARIANTS["kirana-dense"]!,
+  },
   stylex: { port: 3331, directory: "baselines/stylex/apps/large-dom" },
   "stylex-swc": {
     port: 3333,
@@ -51,6 +59,8 @@ const BUILDS = {
   tailwind: { port: 3332, directory: "baselines/tailwind/apps/large-dom" },
 } as const
 type Build = keyof typeof BUILDS
+const variantOf = (build: Build) =>
+  BUILDS[build] as { dist?: string; env?: Record<string, string> }
 
 export type LargeDomSamples = {
   /** The Overdue filter: click to the next frame. */
@@ -90,6 +100,8 @@ export type LargeDomOptions = {
   rounds?: number
   throttle?: number
   serve?: boolean
+  /** Also measure `kirana-dense`. */
+  dense?: boolean
 }
 
 const url = (build: Build, rows: number) =>
@@ -105,21 +117,30 @@ function stop(servers: ChildProcess[]) {
   }
 }
 
-async function serve(): Promise<ChildProcess[]> {
+async function serve(builds: readonly Build[]): Promise<ChildProcess[]> {
   const servers: ChildProcess[] = []
-  for (const [name, build] of Object.entries(BUILDS)) {
+  for (const name of builds) {
+    const build = BUILDS[name]
     const directory = path.join(repository, build.directory)
-    if (!existsSync(path.join(directory, "dist")))
-      throw new Error(`${name}: no build in ${directory}/dist; build it first`)
+    const { dist = "dist", env } = variantOf(name)
+    if (!existsSync(path.join(directory, dist)))
+      throw new Error(
+        `${name}: no build in ${directory}/${dist}; build it first`
+      )
     servers.push(
       spawn(
         "bunx",
         ["vite", "preview", "--port", String(build.port), "--strictPort"],
-        { cwd: directory, stdio: "ignore", detached: true }
+        {
+          cwd: directory,
+          env: { ...process.env, ...env },
+          stdio: "ignore",
+          detached: true,
+        }
       )
     )
   }
-  for (const build of Object.keys(BUILDS) as Build[]) {
+  for (const build of builds) {
     const deadline = Date.now() + 60_000
     while (
       !(await fetch(url(build, 1)).then(
@@ -275,9 +296,12 @@ export async function measureLargeDom({
   rounds = 20,
   throttle = 4,
   serve: start = false,
+  dense = false,
 }: LargeDomOptions = {}): Promise<LargeDomResults> {
-  const builds = Object.keys(BUILDS) as Build[]
-  const servers = start ? await serve() : []
+  const builds = (Object.keys(BUILDS) as Build[]).filter(
+    (build) => dense || build !== "kirana-dense"
+  )
+  const servers = start ? await serve(builds) : []
   const browser = await chromium.launch({
     channel: process.env.KIRANA_CHROME_CHANNEL ?? "chrome",
   })
@@ -337,6 +361,7 @@ if (import.meta.main) {
     rounds: Number(option("rounds", "20")),
     throttle: Number(option("throttle", "4")),
     serve: args.includes("--serve"),
+    dense: args.includes("--dense"),
   })
   const out = option("json", "")
   const text = `${JSON.stringify(results, null, 2)}\n`

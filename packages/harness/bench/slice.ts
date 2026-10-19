@@ -8,7 +8,7 @@
  * Only apps every implementation has may be measured (fairness rule 9): the script fails when one
  * is missing, rather than comparing a corpus against a smaller one.
  *
- * Every build is cold: the app's `dist` and its Vite cache are removed first. Builds are
+ * Every build is cold: the app's build folder and its Vite cache are removed first. Builds are
  * interleaved, so one round builds each implementation's app in turn before the next round, and
  * a machine that warms up or slows down does it to all of them. Warm-up rounds are run and
  * discarded. Every round's numbers are kept: the build's wall time, and, for every client asset
@@ -27,6 +27,7 @@ import path from "node:path"
 import { brotliCompressSync, constants, gzipSync } from "node:zlib"
 
 import { countCss } from "../src/css-count.ts"
+import { variant } from "../src/targets.ts"
 
 export const BUILD_METRICS = {
   build: "ms",
@@ -48,9 +49,9 @@ export type BuildSamples = Record<BuildMetric, number[]>
 /** app → label → samples. */
 export type BuildResults = Record<string, Record<string, BuildSamples>>
 
-/** Every client asset of the extension, anywhere under `dist/client`. */
+/** Every client asset of the extension, anywhere under the build's `client` folder. */
 function assets(directory: string, extension: string): Buffer[] {
-  return readdirSync(path.join(directory, "dist/client"), {
+  return readdirSync(path.join(directory, "client"), {
     recursive: true,
     withFileTypes: true,
   })
@@ -68,7 +69,8 @@ const brotli = (file: Buffer) =>
 
 /** One cold build of an app, and what it shipped. */
 function buildOnce(label: string, directory: string) {
-  rmSync(path.join(directory, "dist"), { recursive: true, force: true })
+  const { env, dist } = variant(label)
+  rmSync(path.join(directory, dist), { recursive: true, force: true })
   rmSync(path.join(directory, "node_modules/.vite"), {
     recursive: true,
     force: true,
@@ -78,13 +80,17 @@ function buildOnce(label: string, directory: string) {
   const result = spawnSync(
     "bun",
     ["run", "--silent", "build", "--logLevel", "silent"],
-    { cwd: directory, stdio: ["ignore", "ignore", "inherit"] }
+    {
+      cwd: directory,
+      env: { ...process.env, ...env },
+      stdio: ["ignore", "ignore", "inherit"],
+    }
   )
   const build = performance.now() - started
   if (result.status !== 0)
     throw new Error(`${label}: the build failed in ${directory}`)
-  const css = assets(directory, ".css")
-  const js = assets(directory, ".js")
+  const css = assets(path.join(directory, dist), ".css")
+  const js = assets(path.join(directory, dist), ".js")
   const counts = css
     .map((file) => countCss(file.toString("utf8")))
     .reduce(
