@@ -44,31 +44,40 @@ describe("compareMedians", () => {
   const slow = fast.map((value) => value * 2.5)
 
   it("calls a clear difference, with an interval that excludes 1", () => {
-    const result = compareMedians(fast, slow)
+    const result = compareMedians(fast, slow)!
     expect(result.ratio).toBeCloseTo(0.4)
     expect(result.high).toBeLessThan(1)
     expect(result.verdict).toBe("lower")
-    expect(compareMedians(slow, fast).verdict).toBe("higher")
+    expect(compareMedians(slow, fast)!.verdict).toBe("higher")
   })
 
   it("calls no difference when the intervals overlap 1", () => {
     const noisy = [90, 110, 95, 105, 100, 92, 108, 98, 102, 101]
     const other = [101, 93, 107, 99, 96, 104, 100, 91, 109, 100]
-    expect(compareMedians(noisy, other).verdict).toBe("no clear difference")
+    expect(compareMedians(noisy, other)!.verdict).toBe("no clear difference")
   })
 
   it("is exact for deterministic measures, like sizes", () => {
-    const result = compareMedians([800, 800], [1000, 1000])
+    const result = compareMedians([800, 800], [1000, 1000])!
     expect(result).toEqual({
       ratio: 0.8,
       low: 0.8,
       high: 0.8,
       verdict: "lower",
     })
-    expect(compareMedians([5, 5], [5, 5]).verdict).toBe("no clear difference")
+    expect(compareMedians([5, 5], [5, 5])!.verdict).toBe("no clear difference")
+  })
+
+  it("states no ratio over a median of 0, or an interval a 0 leaves unbounded", () => {
+    expect(compareMedians([3, 4, 5], [0, 0, 0])).toBeUndefined()
+    expect(compareMedians([0, 0, 0], [0, 0, 0])).toBeUndefined()
+    // Most rounds of the other recalculate nothing: many resamples have a median of 0.
+    expect(compareMedians([2, 3, 4, 2, 3], [0, 0, 5, 6, 0])).toBeUndefined()
+    // Kirana at 0 is a ratio of 0, finite, and lower.
+    expect(compareMedians([0, 0, 0], [3, 4, 5])!.verdict).toBe("lower")
   })
 
   it("gives the same interval for the same samples", () => {
-    expect(compareMedians(fast, slow)).toEqual(compareMedians(fast, slow))
+    expect(compareMedians(fast, slow)!).toEqual(compareMedians(fast, slow)!)
   })
 })

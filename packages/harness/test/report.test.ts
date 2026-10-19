@@ -322,6 +322,28 @@ describe("renderReport", () => {
     expect(renderReport(results())).not.toContain("Dense names")
   })
 
+  it("renders after a round trip through JSON when a measure was 0 in most rounds", () => {
+    const measured = {
+      meta,
+      ...tabulate([
+        {
+          tier: "C",
+          corpus: "large-dom/5000",
+          scenario: "CPU throttled 4×, about 112608 elements",
+          metric: "scrollRecalc",
+          unit: "ms",
+          labels: ["throttle-4"],
+          samples: { kirana: [2, 3, 4, 2, 3], stylex: [0, 0, 5, 6, 0] },
+        },
+      ]),
+    }
+    expect(measured.comparisons).toEqual([])
+    // What `publish` does: read the file back, then render.
+    const read = JSON.parse(JSON.stringify(measured)) as Results
+    expect(() => renderReport(read)).not.toThrow()
+    expect(renderReport(read)).toContain("2.0 ms")
+  })
+
   it("has no medals", () => {
     expect(renderReport(results())).not.toMatch(/🥇|🥈|🥉/)
   })
