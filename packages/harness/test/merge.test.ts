@@ -50,7 +50,10 @@ const curve: Results = {
     hardware: { cpu: "Curve CPU", cores: 4, ramGb: 16, os: "Linux" },
     runner: "ubuntu-26.04 2",
     rounds: { build: 0, runtime: 0, warmup: 1, scaleCurve: 3 },
-    conformance: { "scale-curve": "passed" },
+    conformance: {
+      "scale-curve/100": "passed",
+      "scale-curve/1000": "passed",
+    },
   },
   rows: [
     ...build("scale-curve/100", [200, 210, 190], [800, 810, 790]).rows,
@@ -74,7 +77,8 @@ describe("merge", () => {
     expect(merged.meta.rounds.scaleCurve).toBe(3)
     expect(merged.meta.conformance).toEqual({
       web: "passed",
-      "scale-curve": "passed",
+      "scale-curve/100": "passed",
+      "scale-curve/1000": "passed",
     })
   })
 

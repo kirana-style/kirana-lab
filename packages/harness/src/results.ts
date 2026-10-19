@@ -6,8 +6,18 @@
 import { compareMedians, summarize } from "./stats.ts"
 import type { Ratio, Summary } from "./stats.ts"
 
-/** StyleX twice: compiled by its Babel plugin, and by the Rust (SWC) compiler. */
-export const TARGETS = ["kirana", "stylex", "stylex-swc", "tailwind"] as const
+/**
+ * StyleX twice: compiled by its Babel plugin, and by the Rust (SWC) compiler. Kirana twice too:
+ * as published, and with dense class names (`src/targets.ts`), measured from the release that has
+ * them.
+ */
+export const TARGETS = [
+  "kirana",
+  "kirana-dense",
+  "stylex",
+  "stylex-swc",
+  "tailwind",
+] as const
 export type Target = (typeof TARGETS)[number]
 
 /** Every target Kirana is compared with. */

@@ -88,6 +88,7 @@ function editorTable(results: Results): { lines: string[]; missed: string[] } {
 
 const NAMES: Record<Target, string> = {
   kirana: "Kirana",
+  "kirana-dense": "Kirana (dense names)",
   stylex: "StyleX",
   "stylex-swc": "StyleX (SWC)",
   tailwind: "Tailwind CSS",
@@ -156,6 +157,42 @@ export function formatRatio(comparison: Comparison | undefined): string {
   return `${shown}${interval} ${word}`
 }
 
+/**
+ * What dense names change, as dense ÷ hashed: every size the build and the large-dom page measure,
+ * on the corpus totals and each large-dom size, so the effect reads at a glance.
+ */
+function denseSection(results: Results): string[] {
+  const versus = results.comparisons.filter(
+    (comparison) =>
+      comparison.against === "kirana-dense" &&
+      comparison.scenario === "build" &&
+      (comparison.corpus.endsWith("/total") ||
+        comparison.corpus.startsWith("large-dom") ||
+        comparison.corpus.startsWith("scale-curve/")) &&
+      MEASURES[comparison.metric]?.judged !== false &&
+      comparison.metric !== "build"
+  )
+  if (versus.length === 0) return []
+  return [
+    "## Dense names",
+    "",
+    'Kirana built with `names: "dense"` over Kirana as published: below 1 is smaller with dense names.',
+    "",
+    "| Corpus | Measure | Dense ÷ hashed |",
+    "| --- | --- | --- |",
+    ...versus.map((comparison) => {
+      const inverse = {
+        ratio: 1 / comparison.ratio,
+        low: 1 / comparison.high,
+        high: 1 / comparison.low,
+      }
+      const [ratio, low, high] = ratioParts(inverse)
+      return `| ${corpusName(comparison.corpus)} | ${MEASURES[comparison.metric]?.label ?? comparison.metric} | ${ratio}×${inverse.low === inverse.high ? "" : ` <sub>${low}–${high}</sub>`} |`
+    }),
+    "",
+  ]
+}
+
 const key = (corpus: string, scenario: string, metric: string) =>
   `${corpus}|${scenario}|${metric}`
 
@@ -181,7 +218,10 @@ function table(
     rows.has(`${key(corpus, scenario, metric)}|kirana`)
   )
   if (metrics.length === 0) return []
-  const others = shown.filter((target) => target !== "kirana")
+  // The dense build's ratio reads the other way round, so it is in its own section.
+  const others = shown.filter(
+    (target) => target !== "kirana" && target !== "kirana-dense"
+  )
   return [
     `| Measure | ${shown.map((target) => NAMES[target]).join(" | ")} | ${others.map((target) => `Kirana ÷ ${NAMES[target]}`).join(" | ")} |`,
     `| --- |${" --- |".repeat(shown.length + others.length)}`,
@@ -257,9 +297,11 @@ export function renderReport(results: Results): string {
     ([, state]) => state !== "passed"
   )
   // A loss on the corpus total is listed once; an app's own loss only when the total has none.
+  // Against its own dense build, Kirana "higher" means dense names did better: not a loss.
   const judged = results.comparisons.filter(
     (comparison) =>
       comparison.verdict === "higher" &&
+      comparison.against !== "kirana-dense" &&
       MEASURES[comparison.metric]?.judged !== false
   )
   const totalBehind = new Set(
@@ -304,9 +346,9 @@ export function renderReport(results: Results): string {
   const measured = new Set(results.rows.map((row) => row.target))
   const shown = TARGETS.filter((target) => measured.has(target))
   const against = list(
-    OTHERS.filter((target) => measured.has(target)).map(
-      (target) => NAMES[target]
-    )
+    OTHERS.filter(
+      (target) => measured.has(target) && target !== "kirana-dense"
+    ).map((target) => NAMES[target])
   )
   const targets = Object.entries(meta.targets)
     .map(([name, version]) => `\`${name}\` ${version}`)
@@ -364,6 +406,7 @@ export function renderReport(results: Results): string {
           }),
           "",
         ]),
+    ...denseSection(results),
     "## Build and output",
     "",
     ...corpora.flatMap((corpus) => [
@@ -398,6 +441,11 @@ export function renderReport(results: Results): string {
     "## Method",
     "",
     `- **Builds** are each app's own \`vite build\`, cold (its \`dist\` and Vite cache removed first), interleaved so a round builds ${list(shown.map((target) => NAMES[target]))} in turn.`,
+    ...(measured.has("kirana-dense")
+      ? [
+          '- **Kirana (dense names)** is the Kirana corpus built with `names: "dense"`: the same apps and sources, into its own folder, with conformance comparing it to the hashed build. Its ratios are in **Dense names**, as dense ÷ hashed.',
+        ]
+      : []),
     ...(measured.has("stylex-swc")
       ? [
           "- **StyleX (SWC)** builds the StyleX sources with `@stylexswc/unplugin`, the Rust compiler, in place of the Babel plugin; conformance compares it with the Babel build.",
@@ -412,7 +460,7 @@ export function renderReport(results: Results): string {
       : []),
     ...(meta.rounds.scaleCurve
       ? [
-          "- **scale-curve** writes the same components for every implementation from one seeded sequence (`scripts/scale-curve.ts`): tokens, a font size with its line height and a recipe in each, a hover state in half, a breakpoint in three in ten, a relation in one in four and a runtime value in three in twenty, each implementation in its own idiom. The smallest size's pages pass conformance.",
+          "- **scale-curve** writes the same components for every implementation from one seeded sequence (`scripts/scale-curve.ts`): tokens, a font size with its line height and a recipe in each, a hover state in half, a breakpoint in three in ten, a relation in one in four and a runtime value in three in twenty, each implementation in its own idiom. Conformance compares every size's page, every component on it.",
         ]
       : []),
     ...(meta.rounds.largeDom

@@ -30,11 +30,14 @@ export function merge(session: Results, curve: Results): Results {
           ? {}
           : { scaleCurve: curve.meta.rounds.scaleCurve }),
       },
+      // The curve's conformance, one entry per size (`scale-curve/<size>`).
       conformance: {
         ...session.meta.conformance,
-        ...(curve.meta.conformance["scale-curve"] === undefined
-          ? {}
-          : { "scale-curve": curve.meta.conformance["scale-curve"] }),
+        ...Object.fromEntries(
+          Object.entries(curve.meta.conformance).filter(([corpus]) =>
+            corpus.startsWith("scale-curve")
+          )
+        ),
       },
       scaleCurve: {
         hardware: curve.meta.hardware,

@@ -35,6 +35,8 @@ import path from "node:path"
 import { chromium } from "playwright"
 import type { CDPSession, Page } from "playwright"
 
+import { VARIANTS } from "../src/targets.ts"
+
 const repository = path.resolve(
   new URL("..", import.meta.url).pathname,
   "../.."
@@ -47,6 +49,8 @@ export type RuntimeOptions = {
   elements?: number
   throttles?: number[]
   serve?: boolean
+  /** Also measure `kirana-dense`: the Kirana app built with dense class names. */
+  dense?: boolean
   /**
    * Extra builds to measure beside the four, as `label=/path/to/app`.
    *
@@ -58,7 +62,15 @@ export type RuntimeOptions = {
   also?: string[]
 }
 
-function buildsFor(app: string, also: readonly string[]) {
+type Build = {
+  url: string
+  directory: string
+  /** The build folder and the environment `vite preview` needs for a variant (`src/targets.ts`). */
+  dist?: string
+  env?: Record<string, string>
+}
+
+function buildsFor(app: string, also: readonly string[], dense = false) {
   const extra = also.map((value, index) => {
     const split = value.indexOf("=")
     if (split < 0)
@@ -78,6 +90,15 @@ function buildsFor(app: string, also: readonly string[]) {
       url: "http://localhost:3401",
       directory: path.join(repository, "apps", app),
     },
+    ...(dense
+      ? {
+          "kirana-dense": {
+            url: "http://localhost:3410",
+            directory: path.join(repository, "apps", app),
+            ...VARIANTS["kirana-dense"],
+          },
+        }
+      : {}),
     stylex: {
       url: "http://localhost:3402",
       directory: path.join(
@@ -109,7 +130,7 @@ function buildsFor(app: string, also: readonly string[]) {
       ),
     },
     ...Object.fromEntries(extra),
-  } as Record<string, { url: string; directory: string }>
+  } as Record<string, Build>
 }
 
 function stop(servers: ChildProcess[]) {
@@ -122,14 +143,13 @@ function stop(servers: ChildProcess[]) {
   }
 }
 
-async function serve(
-  builds: Record<string, { url: string; directory: string }>
-): Promise<ChildProcess[]> {
+async function serve(builds: Record<string, Build>): Promise<ChildProcess[]> {
   const servers: ChildProcess[] = []
   for (const [name, build] of Object.entries(builds)) {
-    if (!existsSync(path.join(build.directory, "dist"))) {
+    const dist = build.dist ?? "dist"
+    if (!existsSync(path.join(build.directory, dist))) {
       throw new Error(
-        `${name}: no build in ${build.directory}/dist; build it first`
+        `${name}: no build in ${build.directory}/${dist}; build it first`
       )
     }
     servers.push(
@@ -138,6 +158,7 @@ async function serve(
         ["vite", "preview", "--port", new URL(build.url).port, "--strictPort"],
         {
           cwd: build.directory,
+          env: { ...process.env, ...build.env },
           stdio: "ignore",
           detached: true,
         }
@@ -365,8 +386,9 @@ export async function measureRuntime({
   throttles = [4, 6],
   serve: start = false,
   also = [],
+  dense = false,
 }: RuntimeOptions = {}): Promise<RuntimeResults> {
-  const builds = buildsFor(app, also)
+  const builds = buildsFor(app, also, dense)
   const servers = start ? await serve(builds) : []
   const browser = await chromium.launch({
     channel: process.env.KIRANA_CHROME_CHANNEL ?? "chrome",
@@ -436,6 +458,7 @@ if (import.meta.main) {
     elements: Number(option("elements", "6000")),
     throttles: option("throttle", "4,6").split(",").map(Number),
     serve: args.includes("--serve"),
+    dense: args.includes("--dense"),
     also: args
       .map((argument, index) =>
         argument === "--also" ? args[index + 1] : undefined

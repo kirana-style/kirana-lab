@@ -17,7 +17,10 @@
  *                  [--apps web,blocks,examples] [--runtime-app web]
  *                  [--large-dom-sizes 1000,5000] [--large-dom-throttle 4] [--no-large-dom]
  *                  [--scale-curve-sizes 100,1000,10000] [--no-scale-curve | --only-scale-curve]
- *                  [--no-editor] [--no-conformance] [--no-runtime] [--out <folder>]
+ *                  [--no-editor] [--no-conformance] [--no-runtime] [--no-dense] [--out <folder>]
+ *
+ * `kirana-dense`, the corpus built with dense class names (`src/targets.ts`), is measured beside
+ * `kirana` when the release has them; `--no-dense` leaves it out.
  *
  * CI runs the scale-curve corpus as a job of its own (`--only-scale-curve`), beside the rest
  * (`--no-scale-curve`), and joins the two files with `src/merge.ts`: StyleX's Babel build of
@@ -41,6 +44,7 @@ import type { EditorSamples } from "../bench/editor.ts"
 import { ROOT, corpusCommit, machine, versions } from "./meta.ts"
 import { renderReport } from "./report.ts"
 import { TARGETS, tabulate } from "./results.ts"
+import { hasDenseNames } from "./targets.ts"
 import type { Cell, Meta, Results, Target } from "./results.ts"
 
 const args = process.argv.slice(2)
@@ -73,6 +77,13 @@ const editor = !onlyScale && !flag("no-editor")
 
 const started = new Date()
 const { kirana, targets } = versions()
+/** The targets this session builds: every one, less `kirana-dense` for a release without it. */
+const sessionTargets = TARGETS.filter(
+  (target) =>
+    target !== "kirana-dense" || (hasDenseNames(kirana) && !flag("no-dense"))
+)
+const dense = sessionTargets.includes("kirana-dense")
+const denseFlag = dense ? ["--dense"] : []
 const { hardware, runner, run } = machine()
 const out = path.resolve(
   ROOT,
@@ -84,6 +95,7 @@ const out = path.resolve(
 
 const roots: Record<Target, string> = {
   kirana: ROOT,
+  "kirana-dense": ROOT,
   stylex: path.join(ROOT, "baselines/stylex"),
   "stylex-swc": path.join(ROOT, "baselines/stylex-swc"),
   tailwind: path.join(ROOT, "baselines/tailwind"),
@@ -96,7 +108,7 @@ if (apps.length > 0) {
     `builds: ${apps.join(", ")}, ${warmup} warm-up and ${rounds} rounds`
   )
   const builds = measureBuilds({
-    labels: TARGETS.map((target) => [target, roots[target]] as const),
+    labels: sessionTargets.map((target) => [target, roots[target]] as const),
     apps,
     rounds,
     warmup,
@@ -114,7 +126,10 @@ if (apps.length > 0) {
         unit,
         labels: metric === "build" ? ["cold"] : ["minified"],
         samples: Object.fromEntries(
-          TARGETS.map((target) => [target, builds[app]![target]![metric]])
+          sessionTargets.map((target) => [
+            target,
+            builds[app]![target]![metric],
+          ])
         ) as Record<Target, number[]>,
       })
     }
@@ -127,7 +142,7 @@ if (apps.length > 0) {
       unit,
       labels: metric === "build" ? ["cold"] : ["minified"],
       samples: Object.fromEntries(
-        TARGETS.map((target) => [
+        sessionTargets.map((target) => [
           target,
           Array.from({ length: rounds }, (_, round) =>
             apps.reduce(
@@ -155,6 +170,7 @@ if (!flag("no-conformance")) {
         "--app",
         app,
         "--serve",
+        ...denseFlag,
       ],
       { stdio: "inherit" }
     )
@@ -173,6 +189,7 @@ if (runtime) {
     rounds: runtimeRounds,
     throttles,
     serve: true,
+    dense,
   })
   chrome = browser.chrome
   const units: Record<keyof RuntimeSamples, string> = {
@@ -193,7 +210,7 @@ if (runtime) {
         unit: units[metric],
         labels: [`throttle-${rate}`],
         samples: Object.fromEntries(
-          TARGETS.map((target) => [
+          sessionTargets.map((target) => [
             target,
             browser.samples[rate]![target]![metric],
           ])
@@ -207,7 +224,7 @@ if (runtime) {
 if (largeDom) {
   // One build for the app's sizes: its build time is not part of this corpus.
   const built = measureBuilds({
-    labels: TARGETS.map((target) => [target, roots[target]] as const),
+    labels: sessionTargets.map((target) => [target, roots[target]] as const),
     apps: ["large-dom"],
     rounds: 1,
     warmup: 0,
@@ -222,7 +239,10 @@ if (largeDom) {
       unit: BUILD_METRICS[metric],
       labels: ["minified"],
       samples: Object.fromEntries(
-        TARGETS.map((target) => [target, built["large-dom"]![target]![metric]])
+        sessionTargets.map((target) => [
+          target,
+          built["large-dom"]![target]![metric],
+        ])
       ) as Record<Target, number[]>,
     })
   }
@@ -235,6 +255,7 @@ if (largeDom) {
         "--app",
         "large-dom",
         "--serve",
+        ...denseFlag,
       ],
       { stdio: "inherit" }
     )
@@ -248,6 +269,7 @@ if (largeDom) {
     rounds: runtimeRounds,
     throttle: largeDomThrottle,
     serve: true,
+    dense,
   })
   chrome ??= measured.chrome
   const units: Record<keyof LargeDomSamples, string> = {
@@ -273,7 +295,7 @@ if (largeDom) {
         unit: "bytes",
         labels: ["rendered"],
         samples: Object.fromEntries(
-          TARGETS.map((target) => [target, [size[metric][target]!]])
+          sessionTargets.map((target) => [target, [size[metric][target]!]])
         ) as Record<Target, number[]>,
       })
     for (const metric of Object.keys(units) as (keyof LargeDomSamples)[])
@@ -285,7 +307,10 @@ if (largeDom) {
         unit: units[metric],
         labels: [`throttle-${largeDomThrottle}`],
         samples: Object.fromEntries(
-          TARGETS.map((target) => [target, size.samples[target]![metric]])
+          sessionTargets.map((target) => [
+            target,
+            size.samples[target]![metric],
+          ])
         ) as Record<Target, number[]>,
       })
   }
@@ -295,13 +320,14 @@ if (largeDom) {
 if (scaleCurve) {
   const curve = measureScaleCurve({
     roots,
+    targets: sessionTargets,
     sizes: scaleCurveSizes,
     rounds,
     warmup,
     conformance: !flag("no-conformance"),
   })
   cells.push(...curve.cells)
-  conformance["scale-curve"] = curve.conformance
+  Object.assign(conformance, curve.conformance)
 }
 
 // 5b. The editor: Kirana's language server and check, against their budgets.
