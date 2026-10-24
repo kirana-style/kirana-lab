@@ -46,19 +46,33 @@ const buttonVariants = cva(
  * Matched to the StyleX port: each run of text is wrapped so it can be trimmed
  * to cap height, which centres the capitals instead of the line box. Without it
  * Inter's capitals sit up to 2px high once the baseline snaps to a pixel.
+ * Adjacent strings are one run (`Default{" "}`), and white space alone stays bare
+ * text, which the flex container drops: a label of its own would add a gap.
  */
 const LABEL = "[text-box:trim-both_cap_alphabetic]"
 
 function withLabels(children: React.ReactNode) {
-  return React.Children.map(children, (child) =>
-    typeof child === "string" || typeof child === "number" ? (
-      <span data-slot="button-label" className={LABEL}>
-        {child}
-      </span>
-    ) : (
-      child
-    )
-  )
+  const items: React.ReactNode[] = []
+  let text = ""
+  const flush = () => {
+    if (text.trim())
+      items.push(
+        <span key={`label-${items.length}`} data-slot="button-label" className={LABEL}>
+          {text}
+        </span>
+      )
+    else if (text) items.push(text)
+    text = ""
+  }
+  for (const child of React.Children.toArray(children)) {
+    if (typeof child === "string" || typeof child === "number") text += child
+    else {
+      flush()
+      items.push(child)
+    }
+  }
+  flush()
+  return items
 }
 
 function Button({
