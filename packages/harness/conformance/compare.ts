@@ -20,6 +20,15 @@
  * Kirana matches the original is listed as `corrected` (the port was wrong) instead of failing.
  * A route with differences is captured a second time, and only differences seen both times count.
  *
+ * `--expected-path <from>=<to>` is URL-pair mode, for two sites that serve the same page under
+ * different paths: each route is loaded as it is from the actual site and with `<from>` replaced by
+ * `<to>` from the expected one (and the arbiter), as kirana-ui compares its preview pages with
+ * shadcn/ui's: `--expected-path /preview/react/base/=/preview/base/`. `--expected-differences
+ * <file>` reads the reviewed exceptions from that project's own list instead of this one's.
+ * `--trigger <state>=<selector>`, repeatable, names a state's trigger where both sites mark it
+ * differently from these apps: React Aria's `DialogTrigger` renders no element, so its dialog opens
+ * from the button inside (`--trigger 'dialog-open=[data-slot="example-content"] button'`).
+ *
  * Elements are paired by tag and `data-slot` in DOM order, re-synchronising across elements only
  * one side renders. Every listed property is compared at 1400, 900 and 390 px in light and dark
  * colour schemes; `::before` and `::after` are compared when they render. Colours are normalised
@@ -866,6 +875,17 @@ function sharedWithPort(
 export async function main() {
   const actualUrl = argument("actual")
   const expectedUrl = argument("expected")
+  const [pathFrom, pathTo] = process.argv.includes("--expected-path")
+    ? argument("expected-path").split("=")
+    : []
+  /** A route's URL on one of the sites: the expected one and the arbiter take URL-pair mode's path. */
+  const at = (url: string, route: string) =>
+    new URL(
+      url === actualUrl || pathFrom === undefined
+        ? route
+        : route.replace(pathFrom, pathTo ?? ""),
+      url
+    ).href
   const label = argument("label", "baseline")
   const out = argument(
     "out",
@@ -884,8 +904,8 @@ export async function main() {
   /** One route compared once: differences, and those the port shares or the original confirms. */
   async function compareRoute(route: string) {
     const [actual, expected] = await Promise.all([
-      capture(browser, new URL(route, actualUrl).href),
-      capture(browser, new URL(route, expectedUrl).href),
+      capture(browser, at(actualUrl, route)),
+      capture(browser, at(expectedUrl, route)),
     ])
     // The arbiter is loaded only for a route that differs.
     const arbiter = portUrl ?? originalUrl
@@ -898,7 +918,7 @@ export async function main() {
       )
     const third =
       arbiter && differs
-        ? await capture(browser, new URL(route, arbiter).href)
+        ? await capture(browser, at(arbiter, route))
         : undefined
     const result = {
       differences: [] as Difference[],
@@ -952,6 +972,7 @@ export async function main() {
   }
   const expectedList: {
     element: string
+    /** One property, or `*` for every property of that element. */
     property: string
     reason: string
     /** A regular expression the route must match; every route when absent. */
@@ -959,7 +980,9 @@ export async function main() {
   }[] =
     JSON.parse(
       readFileSync(
-        path.join(import.meta.dirname, "expected-differences.json"),
+        process.argv.includes("--expected-differences")
+          ? path.resolve(argument("expected-differences"))
+          : path.join(import.meta.dirname, "expected-differences.json"),
         "utf8"
       )
     )[label] ?? []
@@ -967,6 +990,13 @@ export async function main() {
   const browser = await chromium.launch({
     channel: process.env.KIRANA_CHROME_CHANNEL || undefined,
   })
+  for (const [index, flag] of process.argv.entries()) {
+    if (flag !== "--trigger") continue
+    const given = process.argv[index + 1] ?? ""
+    const name = given.slice(0, given.indexOf("="))
+    if (!STATES[name]) throw new Error(`--trigger: no state named ${name}`)
+    STATES[name] = { ...STATES[name], trigger: given.slice(name.length + 1) }
+  }
   const flag = process.argv.indexOf("--states")
   const requested = flag < 0 ? undefined : (process.argv[flag + 1] ?? "all")
   const given = new URL(actualUrl)
@@ -1021,9 +1051,7 @@ export async function main() {
     await pool(routes, concurrency, async (route) => {
       const [actual, expected] = await Promise.all(
         [actualUrl, expectedUrl].map((url) =>
-          captureMotion(browser, new URL(route, url).href).catch(
-            () => undefined
-          )
+          captureMotion(browser, at(url, route)).catch(() => undefined)
         )
       )
       if (!actual || !expected) {
@@ -1048,7 +1076,7 @@ export async function main() {
       // the third one is the port's mistake, not this build's.
       const arbiter = portUrl ?? originalUrl
       const third = arbiter
-        ? await captureMotion(browser, new URL(route, arbiter).href).catch(
+        ? await captureMotion(browser, at(arbiter, route)).catch(
             () => undefined
           )
         : undefined
@@ -1091,7 +1119,7 @@ export async function main() {
     await pool(routes, concurrency, async (route) => {
       const [left, right] = (await Promise.all(
         [actualUrl, expectedUrl].map((url) =>
-          reachable(browser, new URL(route, url).href, states)
+          reachable(browser, at(url, route), states)
         )
       )) as [Set<string>, Set<string>]
       for (const [name, state] of states) {
@@ -1116,9 +1144,7 @@ export async function main() {
       }
       const [actual, expected] = await Promise.all(
         [actualUrl, expectedUrl].map((url) =>
-          captureState(browser, new URL(route, url).href, state).catch(
-            () => undefined
-          )
+          captureState(browser, at(url, route), state).catch(() => undefined)
         )
       )
       if (!actual || !expected) {
@@ -1147,11 +1173,9 @@ export async function main() {
       const arbiter = portUrl ?? originalUrl
       const third =
         arbiter && differences.length
-          ? await captureState(
-              browser,
-              new URL(route, arbiter).href,
-              state
-            ).catch(() => undefined)
+          ? await captureState(browser, at(arbiter, route), state).catch(
+              () => undefined
+            )
           : undefined
       for (const difference of differences) {
         const scheme = difference.scheme.split(" ")[0]!
@@ -1182,7 +1206,7 @@ export async function main() {
     expectedList.some(
       (item) =>
         difference.element.startsWith(item.element) &&
-        difference.property === item.property &&
+        (item.property === "*" || difference.property === item.property) &&
         (item.route === undefined ||
           new RegExp(item.route).test(difference.route))
     )
