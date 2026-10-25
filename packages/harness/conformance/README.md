@@ -132,15 +132,23 @@ bun conformance/compare.ts --actual http://localhost:8787 --expected http://loca
   --paths "/preview/react/base/button-example?preset=b0" [--states]
 ```
 
-| Option                          | Effect                                                                             |
-| ------------------------------- | ---------------------------------------------------------------------------------- |
-| `--expected-path <from>=<to>`   | the expected site's path for each route (and the arbiter's)                        |
-| `--expected-differences <file>` | the reviewed exceptions from that project's list instead of this one's             |
-| `--trigger <state>=<selector>`  | a state's trigger where both sites mark it differently from these apps; repeatable |
+| Option                          | Effect                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `--expected-path <from>=<to>`   | the expected site's path for each route (and the arbiter's)                                       |
+| `--expected-differences <file>` | the reviewed exceptions from that project's list instead of this one's                            |
+| `--trigger <state>=<selector>`  | a state's trigger where both sites mark it differently from these apps; repeatable                |
+| `--group <selector>`            | pair elements within each match, keyed by its title (its first child's text), not across the page |
 
 React Aria's `DialogTrigger` renders no element, so a dialog there opens from the button inside it:
 `--trigger 'dialog-open=[data-slot="example-content"] button'`. An exception may name `*` as its
 property, for an element one site renders in another's place.
+
+Pages built of titled examples, as upstream's are, compare best with `--group '[data-slot="example"]'`:
+each element is keyed by its example's title (`Basic › button[data-slot="button"]#2`), so an example
+one site leaves out is reported once, under its title, instead of shifting every pair after it. An
+exception then names an element by its key within the group, or a whole group by its title
+(`"With Avatar › "`). A state neither site reaches is skipped without a report: check that the
+states you expect ran.
 
 ## Reading the result
 

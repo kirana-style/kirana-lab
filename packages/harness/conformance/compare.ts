@@ -25,6 +25,10 @@
  * `<to>` from the expected one (and the arbiter), as kirana-ui compares its preview pages with
  * shadcn/ui's: `--expected-path /preview/react/base/=/preview/base/`. `--expected-differences
  * <file>` reads the reviewed exceptions from that project's own list instead of this one's.
+ * `--group <selector>` pairs elements within groups rather than across the page: an element inside
+ * the closest match is keyed by that group's title (its first child's text) and counted within it,
+ * so a group one site leaves out is reported once instead of shifting every pair after it. For
+ * upstream's example pages, where each `[data-slot="example"]` has a title.
  * `--trigger <state>=<selector>`, repeatable, names a state's trigger where both sites mark it
  * differently from these apps: React Aria's `DialogTrigger` renders no element, so its dialog opens
  * from the button inside (`--trigger 'dialog-open=[data-slot="example-content"] button'`).
@@ -266,7 +270,7 @@ function argument(name: string, fallback?: string): string {
 
 async function snapshot(page: Page): Promise<Snapshot[]> {
   return page.evaluate(
-    ({ properties, pseudoProperties }) => {
+    ({ properties, pseudoProperties, group }) => {
       // Finite animations jump to their end state; endless ones (a spinner) to their first frame,
       // so both implementations are read at the same moment.
       for (const animation of document.getAnimations()) {
@@ -297,9 +301,23 @@ async function snapshot(page: Page): Promise<Snapshot[]> {
           ])
         )
       const counts = new Map<string, number>()
+      // A group's label: its title, numbered when two groups share one.
+      const labels = new Map<Element, string>()
+      if (group) {
+        const seen = new Map<string, number>()
+        for (const element of document.querySelectorAll(group)) {
+          const title =
+            element.firstElementChild?.textContent?.trim() || "(untitled)"
+          const n = (seen.get(title) ?? 0) + 1
+          seen.set(title, n)
+          labels.set(element, n > 1 ? `${title} (${n})` : title)
+        }
+      }
       return [...document.querySelectorAll<HTMLElement>("[data-slot]")].map(
         (element) => {
-          const base = `${element.tagName.toLowerCase()}[data-slot="${element.dataset.slot}"]`
+          const owner = group ? element.closest(group) : null
+          const prefix = owner ? `${labels.get(owner)} › ` : ""
+          const base = `${prefix}${element.tagName.toLowerCase()}[data-slot="${element.dataset.slot}"]`
           const count = (counts.get(base) ?? 0) + 1
           counts.set(base, count)
           const before = getComputedStyle(element, "::before")
@@ -321,7 +339,11 @@ async function snapshot(page: Page): Promise<Snapshot[]> {
         }
       )
     },
-    { properties: PROPERTIES, pseudoProperties: PSEUDO_PROPERTIES }
+    {
+      properties: PROPERTIES,
+      pseudoProperties: PSEUDO_PROPERTIES,
+      group: process.argv.includes("--group") ? argument("group") : null,
+    }
   )
 }
 
@@ -1202,10 +1224,13 @@ export async function main() {
     })
   }
   await browser.close()
+  // An exception names an element by its key, or, under `--group`, by its key within the group
+  // (a whole group is named by its title: `"With Avatar › "`).
   const matches = (difference: Difference) =>
     expectedList.some(
       (item) =>
-        difference.element.startsWith(item.element) &&
+        (difference.element.startsWith(item.element) ||
+          difference.element.split(" › ").at(-1)!.startsWith(item.element)) &&
         (item.property === "*" || difference.property === item.property) &&
         (item.route === undefined ||
           new RegExp(item.route).test(difference.route))
