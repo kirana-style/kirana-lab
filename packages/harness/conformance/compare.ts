@@ -38,8 +38,16 @@
  * colour schemes; `::before` and `::after` are compared when they render. Colours are normalised
  * through a `color-mix(in srgb, …)` probe and compared with a 2/255 tolerance; lengths with 0.5 px.
  * Differences listed in `expected-differences.json` are reported but do not fail the run.
+ *
+ * `--expected-cache <dir>` keeps the expected implementation's captures on disk and reads them back
+ * on later runs, for an expected site pinned at one commit (shadcn/ui's, as kirana-ui compares it):
+ * it is then loaded only for a page it has not captured yet. Name the directory after the pin
+ * (`cache/upstream-481d523`); a capture is also keyed by this file's source and the browser's
+ * version, so a change to what is read, or to how Chrome lays it out, never reuses an old one. The
+ * cache never applies to the actual site.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { chromium } from "playwright"
 import type { Browser, Locator, Page } from "playwright"
@@ -265,6 +273,52 @@ function argument(name: string, fallback?: string): string {
   const index = process.argv.indexOf(`--${name}`)
   const value = index >= 0 ? process.argv[index + 1] : fallback
   if (value === undefined) throw new Error(`missing --${name}`)
+  return value
+}
+
+/** The expected site's captures, kept on disk (`--expected-cache`); `undefined` without the flag. */
+const cacheDir = process.argv.includes("--expected-cache")
+  ? argument("expected-cache")
+  : undefined
+const harnessHash = createHash("sha256")
+  .update(readFileSync(import.meta.filename))
+  .digest("hex")
+  .slice(0, 12)
+/** The browser's version, set at launch: a new Chrome lays text out anew, so it never reuses a capture. */
+let browserVersion = ""
+
+/** A JSON value with Maps and Sets, written so that it reads back as the same. */
+const encode = (_: string, value: unknown) =>
+  value instanceof Map
+    ? { __map: [...value] }
+    : value instanceof Set
+      ? { __set: [...value] }
+      : value
+const decode = (_: string, value: any) =>
+  value && typeof value === "object" && "__map" in value
+    ? new Map(value.__map)
+    : value && typeof value === "object" && "__set" in value
+      ? new Set(value.__set)
+      : value
+
+/** `capture()` for the expected site, read from the cache when it has it, written there when not. */
+async function cached<T>(
+  url: string,
+  kind: string,
+  expected: boolean,
+  run: () => Promise<T>
+): Promise<T> {
+  if (!cacheDir || !expected) return run()
+  const key = createHash("sha256")
+    .update(`${harnessHash}|${browserVersion}|${kind}|${url}`)
+    .digest("hex")
+    .slice(0, 24)
+  const file = path.join(cacheDir, `${key}.json`)
+  if (existsSync(file))
+    return JSON.parse(readFileSync(file, "utf8"), decode) as T
+  const value = await run()
+  mkdirSync(cacheDir, { recursive: true })
+  writeFileSync(file, JSON.stringify(value, encode))
   return value
 }
 
@@ -927,7 +981,9 @@ export async function main() {
   async function compareRoute(route: string) {
     const [actual, expected] = await Promise.all([
       capture(browser, at(actualUrl, route)),
-      capture(browser, at(expectedUrl, route)),
+      cached(at(expectedUrl, route), "rest", true, () =>
+        capture(browser, at(expectedUrl, route))
+      ),
     ])
     // The arbiter is loaded only for a route that differs.
     const arbiter = portUrl ?? originalUrl
@@ -1012,6 +1068,7 @@ export async function main() {
   const browser = await chromium.launch({
     channel: process.env.KIRANA_CHROME_CHANNEL || undefined,
   })
+  browserVersion = browser.version()
   for (const [index, flag] of process.argv.entries()) {
     if (flag !== "--trigger") continue
     const given = process.argv[index + 1] ?? ""
@@ -1141,7 +1198,12 @@ export async function main() {
     await pool(routes, concurrency, async (route) => {
       const [left, right] = (await Promise.all(
         [actualUrl, expectedUrl].map((url) =>
-          reachable(browser, at(url, route), states)
+          cached(
+            at(url, route),
+            `reachable ${states.map(([name]) => name).join(",")}`,
+            url === expectedUrl,
+            () => reachable(browser, at(url, route), states)
+          )
         )
       )) as [Set<string>, Set<string>]
       for (const [name, state] of states) {
@@ -1166,7 +1228,9 @@ export async function main() {
       }
       const [actual, expected] = await Promise.all(
         [actualUrl, expectedUrl].map((url) =>
-          captureState(browser, at(url, route), state).catch(() => undefined)
+          cached(at(url, route), `state ${name}`, url === expectedUrl, () =>
+            captureState(browser, at(url, route), state)
+          ).catch(() => undefined)
         )
       )
       if (!actual || !expected) {
