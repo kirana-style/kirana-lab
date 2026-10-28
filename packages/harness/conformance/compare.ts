@@ -737,6 +737,39 @@ function identity(difference: Difference): string {
  * a second (lazy routes and hydration add them late, most of all under load), then a pause for fonts
  * and effects.
  */
+/**
+ * Waits until the page has repainted in `scheme`: its background reads dark in the dark scheme and
+ * light in the light one. A site that switches its theme from JavaScript (a `.dark` class set by a
+ * media listener) can take longer than a fixed pause, more so with an overlay open, and a capture
+ * taken mid-switch reads as the other scheme on every element. A page with no background of its
+ * own is taken as it is.
+ */
+async function repainted(page: Page, scheme: string, timeout = 3000) {
+  const dark = scheme === "dark"
+  const matches = () =>
+    page.evaluate((wantDark) => {
+      const probe = document.createElement("div")
+      document.body.append(probe)
+      const read = (element: Element) => {
+        probe.style.color = getComputedStyle(element).backgroundColor
+        const [r, g, b, a = 1] = (
+          getComputedStyle(probe).color.match(/[\d.]+/g) ?? []
+        ).map(Number)
+        return a === 0
+          ? undefined
+          : (0.2126 * r! + 0.7152 * g! + 0.0722 * b!) / 255
+      }
+      const luminance = read(document.body) ?? read(document.documentElement)
+      probe.remove()
+      return luminance === undefined || luminance < 0.5 === wantDark
+    }, dark)
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    if (await matches().catch(() => true)) return
+    await page.waitForTimeout(100)
+  }
+}
+
 async function settle(page: Page, pause = 300) {
   await page.waitForLoadState("networkidle").catch(() => {})
   const count = () =>
@@ -835,6 +868,7 @@ async function captureState(
       // media listener) has not repainted yet, and one build caught mid-switch reads as the other
       // scheme on every element.
       await page.waitForTimeout(350)
+      await repainted(page, scheme)
       snapshots.set(scheme, await snapshot(page))
     }
     return snapshots
@@ -914,6 +948,7 @@ async function capture(browser: Browser, url: string) {
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 })
       await page.waitForTimeout(350)
+      await repainted(page, scheme)
       snapshots.set(`${scheme} ${width}`, await snapshot(page))
     }
   }
