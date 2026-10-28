@@ -40,6 +40,11 @@ waste: they can be captured once and read back.
   to what is read, or a Chrome that lays text out differently, never reuses an old capture; a
   state's capture by its trigger too, since a pass may name another trigger for the same state;
 - name the directory after the pin (`…/upstream-481d523`); a new pin is a new directory.
+- a bad capture is kept as faithfully as a good one: upstream caught mid-repaint (a page's dark
+  capture with its light colours, met once in kirana-ui's drawer example) fails every run after.
+  When one difference does not reproduce with the cache left out (run `compare.ts` without
+  `--expected-cache` on that route), remove the files that run wrote (`find <dir> -newer <file>
+  -delete`): a file is named by a hash, not its route.
 
 Measured against kirana-ui's own production build standing in for the expected site (4 routes),
 where both sides are already cheap, a warm cache cuts a rest run from 7.4 s to 6.0 s and a states
@@ -67,7 +72,9 @@ The build is the one heavy moment: 14.6 GB at its peak and about five cores for 
 it when nothing else needs the machine, and keep its output (`.next`) for as long as the pin holds.
 The styles are the same either way (the same Tailwind build of the same CSS), and a production page
 is what users see. Serve it from a clone of upstream at the pin, never the checkout a project reads
-its sources from.
+its sources from. Keep that clone and its build where they survive between sessions, and build again
+only for a new pin: a fresh clone first needs its dependencies and `pnpm registry:build` (the
+workspace's `shadcn` package and the styles the examples import), about 75 s, before `next build`.
 
 With upstream built, a kirana-ui run on its third group (9 pages, 144 routes, rest and states):
 
