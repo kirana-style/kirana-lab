@@ -37,7 +37,8 @@ waste: they can be captured once and read back.
 - every capture of the expected site (rest, the states it can reach, each state) is written to
   `<dir>` the first time and read back after; the actual site is always captured;
 - a capture is keyed by its URL, the harness's own source and the browser's version, so a change
-  to what is read, or a Chrome that lays text out differently, never reuses an old capture;
+  to what is read, or a Chrome that lays text out differently, never reuses an old capture; a
+  state's capture by its trigger too, since a pass may name another trigger for the same state;
 - name the directory after the pin (`…/upstream-481d523`); a new pin is a new directory.
 
 Measured against kirana-ui's own production build standing in for the expected site (4 routes),
@@ -50,12 +51,42 @@ every width and scheme); the whole slice would be a few hundred MB, kept outside
 
 What it does not change: the first capture of a page still needs upstream served, once per pin.
 
+## Serve upstream built, not in development
+
+The first capture of a page still needs upstream served. Built once per pin with `next build` and
+served with `next start`, instead of `next dev`, measured on the same machine (shadcn/ui `apps/v4`,
+Next.js 16.4, Node 24):
+
+| Measured               | `next dev --turbopack`            | `next build` + `next start`           |
+| ---------------------- | --------------------------------- | ------------------------------------- |
+| Getting ready          | 0.25 s, then compiles on demand   | 2 min 17 s once per pin, 14.6 GB peak |
+| Resident while serving | about 4 GB                        | 407 MB                                |
+| A page                 | 100 to 500 ms on the server alone | 3 to 40 ms (0.4 s for the very first) |
+
+The build is the one heavy moment: 14.6 GB at its peak and about five cores for two minutes, so run
+it when nothing else needs the machine, and keep its output (`.next`) for as long as the pin holds.
+The styles are the same either way (the same Tailwind build of the same CSS), and a production page
+is what users see. Serve it from a clone of upstream at the pin, never the checkout a project reads
+its sources from.
+
+With upstream built, a kirana-ui run on its third group (9 pages, 144 routes, rest and states):
+
+| Run                                            | Wall clock  | Per route and pass |
+| ---------------------------------------------- | ----------- | ------------------ |
+| Upstream not yet captured                      | 12 min 48 s | 2.7 s              |
+| Upstream from the cache, the same 9 pages      | 11 min 43 s | 2.4 s              |
+| Upstream from the cache, 4 of them (64 routes) | 2 min 57 s  | 1.4 s              |
+
+So once upstream is built, its side is cheap either way, and the cache saves less than the server
+did: about a tenth on the same pages. What remains is kirana-ui's own side and the fixed waits per
+capture (below). The cache for those 9 pages is 516 MB in 440 files.
+
 ## Run less, in tiers
 
 The same check, scoped to what a change can reach:
 
 1. **While fixing one thing**: one page, the style it concerns, rest only:
-   `vp run conformance -- --pages toggle-example --styles nova,sera`. Seconds with a warm cache.
+   `vp run conformance -- --pages toggle-example --styles nova,sera --rest`. Seconds with a warm cache.
 2. **When a component is done**: its page, every style, rest and states.
 3. **Before the pull request**: every page the branch touches (`vp run conformance:pr`, which
    already finds them from the changed files), every style, once.
@@ -102,8 +133,8 @@ one-off screenshots and reads without the dependency, but not to speed up confor
 
 ## Next
 
-- Merge `--expected-cache`, and have kirana-ui's `scripts/conformance.ts` pass it, under a directory
-  named for the manifest's commit.
+- Merge `--expected-cache`. kirana-ui's `scripts/conformance.ts` already passes it when the harness
+  has it, under a directory named for the manifest's commit.
 - The fixed waits per capture (`settle`, 350 ms per width or scheme, 400 ms after a state) are most
   of the remaining time on a fast site. They exist for sites that repaint their theme from
   JavaScript; a site whose scheme is pure CSS could skip most of them. Worth measuring before

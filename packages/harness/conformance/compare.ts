@@ -1200,7 +1200,8 @@ export async function main() {
         [actualUrl, expectedUrl].map((url) =>
           cached(
             at(url, route),
-            `reachable ${states.map(([name]) => name).join(",")}`,
+            // A state is its trigger as much as its name: a pass may name another trigger for it.
+            `reachable ${states.map(([name, state]) => `${name}=${state.trigger}#${state.nth ?? 0}`).join(",")}`,
             url === expectedUrl,
             () => reachable(browser, at(url, route), states)
           )
@@ -1228,8 +1229,11 @@ export async function main() {
       }
       const [actual, expected] = await Promise.all(
         [actualUrl, expectedUrl].map((url) =>
-          cached(at(url, route), `state ${name}`, url === expectedUrl, () =>
-            captureState(browser, at(url, route), state)
+          cached(
+            at(url, route),
+            `state ${name}=${state.trigger}#${state.nth ?? 0}`,
+            url === expectedUrl,
+            () => captureState(browser, at(url, route), state)
           ).catch(() => undefined)
         )
       )
