@@ -8,6 +8,7 @@
     "versions": "bun scripts/sync-versions.ts",
     "fairness": "bun scripts/fairness.ts",
     "sync-stylex-swc": "bun scripts/sync-stylex-swc.ts",
+    "sync-previous": "bun scripts/sync-previous.ts",
     "bench": "bun run --cwd packages/harness session",
     "bench:builds": "bun run --cwd packages/harness builds",
     "bench:runtime": "bun run --cwd packages/harness runtime",

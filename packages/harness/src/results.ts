@@ -7,13 +7,14 @@ import { compareMedians, summarize } from "./stats.ts"
 import type { Ratio, Summary } from "./stats.ts"
 
 /**
- * StyleX twice: compiled by its Babel plugin, and by the Rust (SWC) compiler. Kirana twice too:
- * as published, and with dense class names (`src/targets.ts`), measured from the release that has
- * them.
+ * StyleX twice: compiled by its Babel plugin, and by the Rust (SWC) compiler. Kirana three times:
+ * as published, with dense class names (`src/targets.ts`), measured from the release that has
+ * them, and at the release before (`kirana-previous`), in the builds only.
  */
 export const TARGETS = [
   "kirana",
   "kirana-dense",
+  "kirana-previous",
   "stylex",
   "stylex-swc",
   "tailwind",
@@ -26,6 +27,9 @@ export const OTHERS = TARGETS.filter(
 )
 
 export type Tier = "A" | "B" | "C" | "D"
+
+/** What `scripts/sync-previous.ts` prepared: the previous release, or why it is left out. */
+export type Previous = { kirana: string; skipped?: string }
 
 export type Meta = {
   /** ISO date and time the run started. */
@@ -57,6 +61,11 @@ export type Meta = {
   }
   /** The machine the scale curve ran on, when a job of its own measured it (`src/merge.ts`). */
   scaleCurve?: Pick<Meta, "hardware" | "runner" | "run">
+  /**
+   * The release before `kirana`, built beside it (`kirana-previous`), or why it was not: a release
+   * that cannot build today's corpus, or none before it (`scripts/sync-previous.ts`).
+   */
+  previous?: Previous
   /** Conformance per app, run before the numbers are trusted (fairness rule 8). */
   conformance: Record<string, "passed" | "failed" | "not run">
 }

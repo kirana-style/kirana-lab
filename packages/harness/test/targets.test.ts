@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { DENSE_SINCE, hasDenseNames, variant } from "../src/targets.ts"
+import {
+  DENSE_SINCE,
+  hasDenseNames,
+  previousRelease,
+  variant,
+} from "../src/targets.ts"
 
 describe("targets", () => {
   it("knows which releases have dense names", () => {
@@ -13,6 +18,23 @@ describe("targets", () => {
     expect(hasDenseNames("0.1.9")).toBe(false)
     expect(hasDenseNames("0.2.3-beta.1")).toBe(false)
     expect(hasDenseNames("0.2.4-beta.1")).toBe(true)
+  })
+
+  it("finds the release before the measured one, pre-releases left out", () => {
+    const published = [
+      "0.2.3",
+      "0.3.0-beta.1",
+      "0.3.0",
+      "0.3.4",
+      "0.3.5",
+      "0.3.10",
+    ]
+    expect(previousRelease("0.3.5", published)).toBe("0.3.4")
+    expect(previousRelease("0.3.10", published)).toBe("0.3.5")
+    expect(previousRelease("0.3.0", published)).toBe("0.2.3")
+    // A pre-release is measured against the last release before its version.
+    expect(previousRelease("0.3.6-beta.1", published)).toBe("0.3.5")
+    expect(previousRelease("0.2.3", published)).toBeUndefined()
   })
 
   it("builds kirana-dense into its own folder, every other target as it is", () => {

@@ -9,13 +9,14 @@ anyone may quote it. Every rule here is written so that a reader can check it ag
 One application set, written three times: a demo page (`apps/web`), sixty-odd shadcn/ui blocks
 (`apps/blocks`) and a page per component (`apps/examples`).
 
-| Implementation       | Where                  | Styling                                                 |
-| -------------------- | ---------------------- | ------------------------------------------------------- |
-| Kirana               | the repository root    | `@kirana-style/*` from npm, at the pinned release       |
-| Kirana (dense names) | the repository root    | the same, built with `names: "dense"` into `dist-dense` |
-| StyleX               | `baselines/stylex`     | `@stylexjs/stylex` with `@stylexjs/unplugin` (Babel)    |
-| StyleX (SWC)         | `baselines/stylex-swc` | the StyleX sources, compiled by `@stylexswc/unplugin`   |
-| Tailwind CSS         | `baselines/tailwind`   | `tailwindcss` 4 with `@tailwindcss/vite`                |
+| Implementation            | Where                       | Styling                                                 |
+| ------------------------- | --------------------------- | ------------------------------------------------------- |
+| Kirana                    | the repository root         | `@kirana-style/*` from npm, at the pinned release       |
+| Kirana (dense names)      | the repository root         | the same, built with `names: "dense"` into `dist-dense` |
+| Kirana (previous release) | `baselines/kirana-previous` | the corpus copied, with the release before from npm     |
+| StyleX                    | `baselines/stylex`          | `@stylexjs/stylex` with `@stylexjs/unplugin` (Babel)    |
+| StyleX (SWC)              | `baselines/stylex-swc`      | the StyleX sources, compiled by `@stylexswc/unplugin`   |
+| Tailwind CSS              | `baselines/tailwind`        | `tailwindcss` 4 with `@tailwindcss/vite`                |
 
 The markup is the same in all of them; the conformance harness proves it by comparing the computed
 styles of every element, on every route, at three widths, in both colour schemes.
@@ -109,6 +110,29 @@ Kirana both ways, from the release that has it (`packages/harness/src/targets.ts
 - **How it reads.** The tables show its medians beside the others, and its ratios have a section of
   their own, dense ÷ hashed, so they never count as Kirana being behind.
 
+### Kirana against its previous release
+
+Two sessions run on two machines: a hosted runner's image changes from one week to the next, and
+it moves every tool's numbers, as much as a release would. So a release is never compared with the
+number the previous session published for the one before (rule 6): each session builds that release
+too, in the same rounds.
+
+- **Same sources, the release before.** `scripts/sync-previous.ts` copies the three apps, the
+  packages they use, the root manifest and its lockfile into `baselines/kirana-previous`, pins the
+  release before the measured one (the newest earlier release on npm, pre-releases left out) and
+  installs it. Every other dependency resolves as the root's does.
+- **The builds only.** It joins the three apps' builds (tiers A and B), interleaved like any other
+  target. The browser, large-dom, the scale curve and the editor measure the release under test.
+- **A release that cannot build today's corpus** (the corpus uses an API added since, or the copy
+  does not install) is left out, and the report says why: the comparison is never made on part of
+  the corpus.
+- **Conformance** is not run for it: the previous release passed its own session, and a release that
+  fixes a rendering bug renders differently on purpose. Its numbers are this release's history,
+  never a comparison with another tool.
+- **How it reads.** Its section, "Against the previous release", gives this release's median over
+  the previous one's, with the interval, and lists any measure that is higher with confidence. It
+  never counts as Kirana being behind.
+
 ## Tiers
 
 | Tier            | What it measures                                                                                      |
@@ -129,7 +153,8 @@ Kirana both ways, from the release that has it (`packages/harness/src/targets.ts
 4. **Direct builds.** Each app's own `vite build`, never through a task cache.
 5. **Cold builds labelled.** Caches are removed before a cold build.
 6. **One machine, one session.** All of them are measured on the same machine in the same run, and
-   numbers from different runs are never compared.
+   numbers from different runs are never compared. A release is set against the one before only
+   through the previous-release target of one session.
 7. **Feature parity.** Where one cannot express what the others do, the result says so.
 8. **Correctness first.** An implementation's numbers count only if its conformance run passed.
 9. **Only shared applications.** An app that exists for one implementation and not the others is
@@ -166,4 +191,6 @@ A number may be quoted only when:
 2. it compares medians with confidence intervals from one machine and one session;
 3. conformance passed for every implementation it compares;
 4. the results that do not favour Kirana, from the same run, are published beside it;
-5. numbers other projects report about themselves are labelled as theirs and never mixed in.
+5. numbers other projects report about themselves are labelled as theirs and never mixed in;
+6. a change from one Kirana release to the next comes from one session's "Against the previous
+   release", never from two sessions' numbers.

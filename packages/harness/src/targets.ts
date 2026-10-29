@@ -6,6 +6,9 @@
  * Kirana's D-084): the same apps and sources, so any difference from `kirana` is the naming's.
  * `packages/vite-config` reads `KIRANA_LAB_NAMES` and writes that build to `dist-dense`, beside the
  * hashed one, so the two interleave like any other pair of targets.
+ *
+ * `kirana-previous` is the corpus copied into `PREVIOUS` with the release before the measured one
+ * (`scripts/sync-previous.ts`): a plain build, from its own checkout.
  */
 import type { Target } from "./results.ts"
 
@@ -24,13 +27,41 @@ export const variant = (label: string): Variant =>
 /** The first Kirana release with `names: "dense"`. */
 export const DENSE_SINCE = "0.2.3"
 
+/** `major.minor.patch` of a version, its pre-release left out. */
+const parts = (version: string) =>
+  version.split("-")[0]!.split(".").map(Number) as [number, number, number]
+
+/** Below 0 when `a`'s `major.minor.patch` is lower than `b`'s, 0 when they are the same. */
+const compare = (a: string, b: string) => {
+  const [x, y] = [parts(a), parts(b)]
+  for (let index = 0; index < 3; index++)
+    if (x[index] !== y[index]) return x[index]! - y[index]!
+  return 0
+}
+
 /** Whether `version` (`major.minor.patch`, perhaps with a pre-release) has dense names. */
 export function hasDenseNames(version: string): boolean {
-  const parse = (text: string) =>
-    text.split("-")[0]!.split(".").map(Number) as [number, number, number]
-  const [a, b] = [parse(version), parse(DENSE_SINCE)]
-  for (let index = 0; index < 3; index++)
-    if (a[index] !== b[index]) return a[index]! > b[index]!
+  const order = compare(version, DENSE_SINCE)
   // A pre-release of the first version came before it.
-  return !version.includes("-")
+  return order === 0 ? !version.includes("-") : order > 0
+}
+
+/** Where `scripts/sync-previous.ts` puts the corpus with the previous release, from the root. */
+export const PREVIOUS = "baselines/kirana-previous"
+
+/**
+ * The release before `version` among `published` (npm's versions of `@kirana-style/core`): the
+ * newest one lower than it, pre-releases left out, or none for the first release. A session builds
+ * it beside `version`, so a release is compared with the one before on one machine, in one session
+ * (fairness rule 6), never with a number from the session that measured it.
+ */
+export function previousRelease(
+  version: string,
+  published: readonly string[]
+): string | undefined {
+  return published
+    .filter((candidate) => !candidate.includes("-"))
+    .filter((candidate) => compare(candidate, version) < 0)
+    .sort(compare)
+    .at(-1)
 }

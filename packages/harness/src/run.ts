@@ -17,10 +17,15 @@
  *                  [--apps web,blocks,examples] [--runtime-app web]
  *                  [--large-dom-sizes 1000,5000] [--large-dom-throttle 4] [--no-large-dom]
  *                  [--scale-curve-sizes 100,1000,10000] [--no-scale-curve | --only-scale-curve]
- *                  [--no-editor] [--no-conformance] [--no-runtime] [--no-dense] [--out <folder>]
+ *                  [--no-editor] [--no-conformance] [--no-runtime] [--no-dense] [--no-previous]
+ *                  [--out <folder>]
  *
  * `kirana-dense`, the corpus built with dense class names (`src/targets.ts`), is measured beside
  * `kirana` when the release has them; `--no-dense` leaves it out.
+ *
+ * `kirana-previous`, the corpus at the release before (`scripts/sync-previous.ts`), joins the three
+ * apps' builds when it was prepared, so this release is compared with the last one on this machine,
+ * in these rounds; `--no-previous` leaves it out.
  *
  * CI runs the scale-curve corpus as a job of its own (`--only-scale-curve`), beside the rest
  * (`--no-scale-curve`), and joins the two files with `src/merge.ts`: StyleX's Babel build of
@@ -41,10 +46,16 @@ import type { RuntimeSamples } from "../bench/runtime.ts"
 import { SIZES, measureScaleCurve } from "./scale-curve.ts"
 import { measureEditor } from "../bench/editor.ts"
 import type { EditorSamples } from "../bench/editor.ts"
-import { ROOT, corpusCommit, machine, versions } from "./meta.ts"
+import {
+  ROOT,
+  corpusCommit,
+  machine,
+  previous as prepared,
+  versions,
+} from "./meta.ts"
 import { renderReport } from "./report.ts"
 import { TARGETS, tabulate } from "./results.ts"
-import { hasDenseNames } from "./targets.ts"
+import { PREVIOUS, hasDenseNames } from "./targets.ts"
 import type { Cell, Meta, Results, Target } from "./results.ts"
 
 const args = process.argv.slice(2)
@@ -83,6 +94,14 @@ const sessionTargets = TARGETS.filter(
     target !== "kirana-dense" || (hasDenseNames(kirana) && !flag("no-dense"))
 )
 const dense = sessionTargets.includes("kirana-dense")
+/** The previous release, when `scripts/sync-previous.ts` prepared it and the three apps are built. */
+const previous =
+  apps.length > 0 && !flag("no-previous") ? prepared() : undefined
+/** The builds of the three apps also take the previous release, when it builds today's corpus. */
+const buildTargets: Target[] =
+  previous && previous.skipped === undefined
+    ? [...sessionTargets, "kirana-previous"]
+    : sessionTargets
 const denseFlag = dense ? ["--dense"] : []
 const { hardware, runner, run } = machine()
 const out = path.resolve(
@@ -96,6 +115,7 @@ const out = path.resolve(
 const roots: Record<Target, string> = {
   kirana: ROOT,
   "kirana-dense": ROOT,
+  "kirana-previous": path.join(ROOT, PREVIOUS),
   stylex: path.join(ROOT, "baselines/stylex"),
   "stylex-swc": path.join(ROOT, "baselines/stylex-swc"),
   tailwind: path.join(ROOT, "baselines/tailwind"),
@@ -108,7 +128,7 @@ if (apps.length > 0) {
     `builds: ${apps.join(", ")}, ${warmup} warm-up and ${rounds} rounds`
   )
   const builds = measureBuilds({
-    labels: sessionTargets.map((target) => [target, roots[target]] as const),
+    labels: buildTargets.map((target) => [target, roots[target]] as const),
     apps,
     rounds,
     warmup,
@@ -126,10 +146,7 @@ if (apps.length > 0) {
         unit,
         labels: metric === "build" ? ["cold"] : ["minified"],
         samples: Object.fromEntries(
-          sessionTargets.map((target) => [
-            target,
-            builds[app]![target]![metric],
-          ])
+          buildTargets.map((target) => [target, builds[app]![target]![metric]])
         ) as Record<Target, number[]>,
       })
     }
@@ -142,7 +159,7 @@ if (apps.length > 0) {
       unit,
       labels: metric === "build" ? ["cold"] : ["minified"],
       samples: Object.fromEntries(
-        sessionTargets.map((target) => [
+        buildTargets.map((target) => [
           target,
           Array.from({ length: rounds }, (_, round) =>
             apps.reduce(
@@ -382,6 +399,7 @@ const results: Results = {
       ...(editor ? { editor: rounds } : {}),
     },
     conformance,
+    ...(previous ? { previous } : {}),
   },
   ...tabulate(cells),
 }
