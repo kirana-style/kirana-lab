@@ -17,6 +17,7 @@ a number must have before it can be quoted.
 | `baselines/stylex`                    | The same apps with StyleX, a workspace of its own with its own lockfile            |
 | `baselines/stylex-swc`                | The StyleX apps compiled by SWC: its own Vite setup and lockfile, the apps copied  |
 | `baselines/tailwind`                  | The same apps with Tailwind CSS, likewise                                          |
+| `baselines/kirana-previous`           | The Kirana corpus at the release before, written by `bun run sync-previous`        |
 | `packages/harness`                    | The build and runtime benchmarks, and the conformance harness                      |
 | `versions.json`                       | Every dependency the implementations share, at one exact version                   |
 | `scripts/`                            | Pin a Kirana release, keep the shared versions in step, compare the lockfiles      |
@@ -39,6 +40,7 @@ vp run build                                      # every implementation, every 
 vp run check                                      # lint, types, shared versions, lockfiles
 vp run test                                       # the harness's statistics and report
 
+bun run sync-previous                             # the corpus at the release before, beside it
 bun run bench                                     # a whole session: results/<version>/<date>/
 ```
 

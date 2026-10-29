@@ -7,9 +7,9 @@
  *   bun scripts/use-kirana.ts latest     # whatever npm's `latest` tag points at
  */
 import { execFileSync } from "node:child_process"
-import { readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
+import { pinKirana } from "./kirana-release.ts"
 import { ROOT } from "./workspaces.ts"
 
 const [asked] = process.argv.slice(2)
@@ -29,12 +29,5 @@ if (!/^\d+\.\d+\.\d+(?:-[\w.]+)?$/.test(version)) {
   process.exit(2)
 }
 
-const file = path.join(ROOT, "package.json")
-const manifest = JSON.parse(readFileSync(file, "utf8")) as {
-  workspaces: { catalog: Record<string, string> }
-}
-for (const name of Object.keys(manifest.workspaces.catalog))
-  if (name.startsWith("@kirana-style/") || name === "kirana-style")
-    manifest.workspaces.catalog[name] = version
-writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`)
+pinKirana(path.join(ROOT, "package.json"), version)
 console.log(`kirana: ${version}; run \`bun install\` to resolve it`)

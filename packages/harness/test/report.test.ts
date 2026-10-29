@@ -322,6 +322,73 @@ describe("renderReport", () => {
     expect(renderReport(results())).not.toContain("Dense names")
   })
 
+  it("sets this release against the previous one in its own section, never as Kirana behind", () => {
+    const session = (previous: Meta["previous"]): Results => ({
+      meta: { ...meta, kirana: "0.3.5", previous },
+      ...tabulate([
+        {
+          tier: "A",
+          corpus: "three-way/total",
+          scenario: "build",
+          metric: "build",
+          unit: "ms",
+          labels: ["cold"],
+          samples: {
+            kirana: [1100, 1110, 1090],
+            "kirana-previous": [1000, 1010, 990],
+            stylex: [3000, 3030, 2970],
+          },
+        },
+        {
+          tier: "B",
+          corpus: "three-way/web",
+          scenario: "build",
+          metric: "cssGzip",
+          unit: "bytes",
+          labels: ["minified"],
+          samples: {
+            kirana: [17_000, 17_000, 17_000],
+            "kirana-previous": [17_700, 17_700, 17_700],
+            stylex: [9_300, 9_300, 9_300],
+          },
+        },
+      ]),
+    })
+    const report = renderReport(session({ kirana: "0.3.4" }))
+    expect(report).toContain("## Against the previous release")
+    expect(report).toContain("Kirana 0.3.5 over Kirana 0.3.4")
+    // Slower than the release before: said there, and nowhere among the tools.
+    expect(report).toMatch(
+      /Higher than in 0\.3\.4 with confidence:\n\n- \*\*Build, cold\*\*, All apps: 1\.10×/
+    )
+    expect(report).toContain(
+      "| `apps/web` | CSS, gzip | 17.7 kB | 17.0 kB | 0.96× lower |"
+    )
+    const behind = report.slice(
+      report.indexOf("## Where Kirana is behind"),
+      report.indexOf("## Against the previous release")
+    )
+    expect(behind).not.toContain("previous")
+    expect(report).not.toContain("Kirana ÷ Kirana (previous release)")
+    expect(report).toContain("# Kirana 0.3.5, measured against StyleX\n")
+    expect(report).toContain(
+      "- **Kirana (previous release)** is the Kirana corpus copied with Kirana 0.3.4"
+    )
+    // A release that cannot build today's corpus is named, with the reason.
+    const skipped = renderReport(
+      session({
+        kirana: "0.3.4",
+        skipped: "`apps/web` does not build with it (error)",
+      })
+    )
+    expect(skipped).toContain(
+      "Kirana 0.3.4, the release before, was not measured: `apps/web` does not build with it (error)."
+    )
+    expect(skipped).not.toContain("Kirana 0.3.5 over Kirana 0.3.4")
+    // No previous release in the run: no section.
+    expect(renderReport(session(undefined))).not.toContain("previous release")
+  })
+
   it("renders after a round trip through JSON when a measure was 0 in most rounds", () => {
     const measured = {
       meta,

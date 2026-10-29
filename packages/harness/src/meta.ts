@@ -8,6 +8,9 @@ import { existsSync, readFileSync, realpathSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
+import type { Previous } from "./results.ts"
+import { PREVIOUS } from "./targets.ts"
+
 export const ROOT = path.resolve(import.meta.dirname, "../../..")
 
 /**
@@ -39,6 +42,17 @@ export function installedUnder(
     if (existsSync(found)) return installed(realpathSync(found), name)
     if (directory === path.dirname(directory)) return undefined
   }
+}
+
+/**
+ * The previous release `scripts/sync-previous.ts` prepared (`PREVIOUS/previous.json`), or none when
+ * it has not run.
+ */
+export function previous(): Previous | undefined {
+  const file = path.join(ROOT, PREVIOUS, "previous.json")
+  return existsSync(file)
+    ? (JSON.parse(readFileSync(file, "utf8")) as Previous)
+    : undefined
 }
 
 export function corpusCommit(): string {

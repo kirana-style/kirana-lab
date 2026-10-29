@@ -44,9 +44,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # With the release before, so the report sets this one against it on this machine.
       - uses: ./.github/actions/prepare
         with:
           version: ${{ github.event.client_payload.version || inputs.version || 'latest' }}
+          previous: "true"
 
       - name: Measure
         env:

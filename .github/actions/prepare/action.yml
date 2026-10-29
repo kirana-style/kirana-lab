@@ -7,6 +7,9 @@ inputs:
   version:
     description: The Kirana release to measure, or `latest`
     required: true
+  previous:
+    description: Also prepare the corpus at the release before, for the builds to compare with
+    default: "false"
 
 runs:
   using: composite
@@ -34,6 +37,13 @@ runs:
         bun scripts/sync-stylex-swc.ts
         (cd baselines/stylex-swc && bun install --frozen-lockfile)
         (cd baselines/tailwind && bun install --frozen-lockfile)
+
+    # The corpus at the release before, from npm, built beside this one in the same rounds. A
+    # release that cannot build today's corpus is recorded as left out, and the session goes on.
+    - name: The previous release
+      if: inputs.previous == 'true'
+      shell: bash
+      run: bun scripts/sync-previous.ts
 
     # The shared versions and the lockfiles, before anything is measured.
     - name: Fairness

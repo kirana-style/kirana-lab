@@ -26,6 +26,7 @@ bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conforman
 | `--no-editor`          | off                        | Skip the editor (tier D)                                             |
 | `--no-conformance`     | off                        | Skip the gate; the report then says the numbers are not to be quoted |
 | `--no-runtime`         | off                        | Builds only                                                          |
+| `--no-previous`        | off                        | Leave out the previous release, when `sync-previous` prepared it     |
 | `--out`                | `results/<version>/<date>` | Where the two files go                                               |
 
 CI runs the session as two jobs and joins their files with

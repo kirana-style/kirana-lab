@@ -89,6 +89,7 @@ function editorTable(results: Results): { lines: string[]; missed: string[] } {
 const NAMES: Record<Target, string> = {
   kirana: "Kirana",
   "kirana-dense": "Kirana (dense names)",
+  "kirana-previous": "Kirana (previous release)",
   stylex: "StyleX",
   "stylex-swc": "StyleX (SWC)",
   tailwind: "Tailwind CSS",
@@ -196,6 +197,78 @@ function denseSection(results: Results): string[] {
 const key = (corpus: string, scenario: string, metric: string) =>
   `${corpus}|${scenario}|${metric}`
 
+/**
+ * This release against the one before it, both built from the same sources in the same rounds:
+ * build time and output on each app and on all of them, this release's median over the previous
+ * one's. Two releases are compared here only, never across two sessions (fairness rule 6): a
+ * session on another runner moves every tool's numbers, as much as a release would.
+ */
+function previousSection(results: Results): string[] {
+  const { meta } = results
+  const previous = meta.previous
+  if (!previous) return []
+  const title = ["## Against the previous release", ""]
+  if (previous.skipped !== undefined)
+    return [
+      ...title,
+      `Kirana ${previous.kirana}, the release before, was not measured: ${previous.skipped}.`,
+      "",
+    ]
+  const metrics = Object.keys(MEASURES)
+  const versus = results.comparisons
+    .filter(
+      (comparison) =>
+        comparison.against === "kirana-previous" &&
+        comparison.scenario === "build" &&
+        comparison.corpus.startsWith("three-way/") &&
+        MEASURES[comparison.metric]?.judged !== false
+    )
+    .sort(
+      (a, b) =>
+        Number(b.corpus.endsWith("/total")) -
+          Number(a.corpus.endsWith("/total")) ||
+        a.corpus.localeCompare(b.corpus) ||
+        metrics.indexOf(a.metric) - metrics.indexOf(b.metric)
+    )
+  if (versus.length === 0) return []
+  const rows = new Map<string, Row>(
+    results.rows.map((row) => [
+      `${key(row.corpus, row.scenario, row.metric)}|${row.target}`,
+      row,
+    ])
+  )
+  const at = (comparison: Comparison, target: Target) =>
+    rows.get(
+      `${key(comparison.corpus, comparison.scenario, comparison.metric)}|${target}`
+    )
+  const label = (comparison: Comparison) =>
+    MEASURES[comparison.metric]?.label ?? comparison.metric
+  const higher = versus.filter((comparison) => comparison.verdict === "higher")
+  return [
+    ...title,
+    `Kirana ${meta.kirana} over Kirana ${previous.kirana}, the release before it, installed from npm and built from the same sources in the same rounds: below 1 is lower for ${meta.kirana}.`,
+    "",
+    ...(higher.length === 0
+      ? [`No measure is higher than in ${previous.kirana} with confidence.`]
+      : [
+          `Higher than in ${previous.kirana} with confidence:`,
+          "",
+          ...higher.map((comparison) => {
+            const [ratio, low, high] = ratioParts(comparison)
+            return `- **${label(comparison)}**, ${corpusName(comparison.corpus)}: ${ratio}× (${low}–${high}).`
+          }),
+        ]),
+    "",
+    `| Corpus | Measure | Kirana ${previous.kirana} | Kirana ${meta.kirana} | ${meta.kirana} ÷ ${previous.kirana} |`,
+    "| --- | --- | --- | --- | --- |",
+    ...versus.map(
+      (comparison) =>
+        `| ${corpusName(comparison.corpus)} | ${label(comparison)} | ${cell(at(comparison, "kirana-previous"))} | ${cell(at(comparison, "kirana"))} | ${formatRatio(comparison)} |`
+    ),
+    "",
+  ]
+}
+
 function table(
   results: Results,
   corpus: string,
@@ -297,11 +370,13 @@ export function renderReport(results: Results): string {
     ([, state]) => state !== "passed"
   )
   // A loss on the corpus total is listed once; an app's own loss only when the total has none.
-  // Against its own dense build, Kirana "higher" means dense names did better: not a loss.
+  // Against its own dense build, Kirana "higher" means dense names did better: not a loss. Its
+  // previous release is no other tool: what changed since is in its own section.
   const judged = results.comparisons.filter(
     (comparison) =>
       comparison.verdict === "higher" &&
       comparison.against !== "kirana-dense" &&
+      comparison.against !== "kirana-previous" &&
       MEASURES[comparison.metric]?.judged !== false
   )
   const totalBehind = new Set(
@@ -342,12 +417,18 @@ export function renderReport(results: Results): string {
         .map((row) => `${row.corpus}|${row.scenario}`)
     ),
   ]
-  // The implementations this run measured, in their usual order.
+  // The implementations this run measured, in their usual order. The previous release has its own
+  // section, so the tables compare the tools.
   const measured = new Set(results.rows.map((row) => row.target))
-  const shown = TARGETS.filter((target) => measured.has(target))
+  const shown = TARGETS.filter(
+    (target) => measured.has(target) && target !== "kirana-previous"
+  )
   const against = list(
     OTHERS.filter(
-      (target) => measured.has(target) && target !== "kirana-dense"
+      (target) =>
+        measured.has(target) &&
+        target !== "kirana-dense" &&
+        target !== "kirana-previous"
     ).map((target) => NAMES[target])
   )
   const targets = Object.entries(meta.targets)
@@ -407,6 +488,7 @@ export function renderReport(results: Results): string {
           "",
         ]),
     ...denseSection(results),
+    ...previousSection(results),
     "## Build and output",
     "",
     ...corpora.flatMap((corpus) => [
@@ -444,6 +526,11 @@ export function renderReport(results: Results): string {
     ...(measured.has("kirana-dense")
       ? [
           '- **Kirana (dense names)** is the Kirana corpus built with `names: "dense"`: the same apps and sources, into its own folder, with conformance comparing it to the hashed build. Its ratios are in **Dense names**, as dense ÷ hashed.',
+        ]
+      : []),
+    ...(measured.has("kirana-previous") && meta.previous
+      ? [
+          `- **Kirana (previous release)** is the Kirana corpus copied with Kirana ${meta.previous.kirana} from npm in its place (\`scripts/sync-previous.ts\`): the same sources, and every other dependency at the version the corpus resolves. It joins the three apps' builds, without conformance, and its ratios are in **Against the previous release**, as ${meta.kirana} ÷ ${meta.previous.kirana}.`,
         ]
       : []),
     ...(measured.has("stylex-swc")

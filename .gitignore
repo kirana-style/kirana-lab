@@ -4,6 +4,8 @@ dist
 dist-ssr
 # The harness's kirana-dense build (packages/harness/src/targets.ts).
 dist-dense
+# The corpus at the previous Kirana release (scripts/sync-previous.ts).
+baselines/kirana-previous/
 *.local
 .env*
 .tanstack
