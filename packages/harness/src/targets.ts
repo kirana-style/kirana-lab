@@ -10,6 +10,7 @@
  * `kirana-previous` is the corpus copied into `PREVIOUS` with the release before the measured one
  * (`scripts/sync-previous.ts`): a plain build, from its own checkout.
  */
+import { TARGETS } from "./results.ts"
 import type { Target } from "./results.ts"
 
 export type Variant = { env: Record<string, string>; dist: string }
@@ -44,6 +45,23 @@ export function hasDenseNames(version: string): boolean {
   const order = compare(version, DENSE_SINCE)
   // A pre-release of the first version came before it.
   return order === 0 ? !version.includes("-") : order > 0
+}
+
+/**
+ * The targets every step of a session measures, in the order a round builds them: each one less
+ * `kirana-previous`, which only the three apps' builds take, and only when it was prepared (the
+ * scale-curve job never prepares it), and less `kirana-dense` for a release without dense names or
+ * when it is turned off.
+ */
+export function sessionTargets(
+  version: string,
+  { dense }: { dense: boolean }
+): Target[] {
+  return TARGETS.filter(
+    (target) =>
+      target !== "kirana-previous" &&
+      (target !== "kirana-dense" || (dense && hasDenseNames(version)))
+  )
 }
 
 /** Where `scripts/sync-previous.ts` puts the corpus with the previous release, from the root. */

@@ -54,8 +54,8 @@ import {
   versions,
 } from "./meta.ts"
 import { renderReport } from "./report.ts"
-import { TARGETS, tabulate } from "./results.ts"
-import { PREVIOUS, hasDenseNames } from "./targets.ts"
+import { tabulate } from "./results.ts"
+import { PREVIOUS, sessionTargets as targetsOf } from "./targets.ts"
 import type { Cell, Meta, Results, Target } from "./results.ts"
 
 const args = process.argv.slice(2)
@@ -88,11 +88,8 @@ const editor = !onlyScale && !flag("no-editor")
 
 const started = new Date()
 const { kirana, targets } = versions()
-/** The targets this session builds: every one, less `kirana-dense` for a release without it. */
-const sessionTargets = TARGETS.filter(
-  (target) =>
-    target !== "kirana-dense" || (hasDenseNames(kirana) && !flag("no-dense"))
-)
+/** The targets every step measures; the builds of the three apps may add the previous release. */
+const sessionTargets = targetsOf(kirana, { dense: !flag("no-dense") })
 const dense = sessionTargets.includes("kirana-dense")
 /** The previous release, when `scripts/sync-previous.ts` prepared it and the three apps are built. */
 const previous =
