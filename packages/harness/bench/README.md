@@ -9,28 +9,31 @@ bun run bench                                   # 10 cold build rounds, conforma
 bun run bench --rounds 2 --warmup 0 --runtime-rounds 2 --apps web --no-conformance --no-large-dom --no-scale-curve --no-editor   # a smoke run
 ```
 
-| Option                 | Default                    | What it does                                                         |
-| ---------------------- | -------------------------- | -------------------------------------------------------------------- |
-| `--rounds`             | `10`                       | Cold build rounds per app, interleaved                               |
-| `--warmup`             | `1`                        | Rounds run first and discarded                                       |
-| `--apps`               | `web,blocks,examples`      | The apps built and checked                                           |
-| `--runtime-app`        | `web`                      | The app opened in the browser                                        |
-| `--runtime-rounds`     | `20`                       | Browser runs per build and throttling rate                           |
-| `--throttle`           | `4,6`                      | CPU throttling rates                                                 |
-| `--large-dom-sizes`    | `1000,5000`                | Row counts of the large-dom table; `10000` and `25000` by hand       |
-| `--large-dom-throttle` | `4`                        | Its CPU throttling rate                                              |
-| `--no-large-dom`       | off                        | Skip the large-dom corpus                                            |
-| `--scale-curve-sizes`  | `100,1000,10000`           | Component counts of the scale curve                                  |
-| `--no-scale-curve`     | off                        | Skip the scale curve (CI's `bench` job)                              |
-| `--only-scale-curve`   | off                        | The scale curve alone (CI's `scale-curve` job)                       |
-| `--no-editor`          | off                        | Skip the editor (tier D)                                             |
-| `--no-conformance`     | off                        | Skip the gate; the report then says the numbers are not to be quoted |
-| `--no-runtime`         | off                        | Builds only                                                          |
-| `--no-previous`        | off                        | Leave out the previous release, when `sync-previous` prepared it     |
-| `--out`                | `results/<version>/<date>` | Where the two files go                                               |
+| Option                 | Default                    | What it does                                                                                               |
+| ---------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--rounds`             | `10`                       | Cold build rounds per app, interleaved                                                                     |
+| `--warmup`             | `1`                        | Rounds run first and discarded                                                                             |
+| `--apps`               | `web,blocks,examples`      | The apps built and checked                                                                                 |
+| `--runtime-app`        | `web`                      | The app opened in the browser                                                                              |
+| `--runtime-rounds`     | `20`                       | Browser runs per build and throttling rate                                                                 |
+| `--throttle`           | `4,6`                      | CPU throttling rates                                                                                       |
+| `--large-dom-sizes`    | `1000,5000`                | Row counts of the large-dom table; `10000` and `25000` by hand                                             |
+| `--large-dom-throttle` | `4`                        | Its CPU throttling rate                                                                                    |
+| `--no-large-dom`       | off                        | Skip the large-dom corpus                                                                                  |
+| `--scale-curve-sizes`  | `100,1000,10000`           | Component counts of the scale curve                                                                        |
+| `--no-scale-curve`     | off                        | Skip the scale curve (CI's `bench` job)                                                                    |
+| `--only-scale-curve`   | off                        | The scale curve alone (CI's `scale-curve` job)                                                             |
+| `--no-editor`          | off                        | Skip the editor (tier D)                                                                                   |
+| `--no-conformance`     | off                        | Skip the gate; the report then says the numbers are not to be quoted                                       |
+| `--no-runtime`         | off                        | Builds only                                                                                                |
+| `--only-previous`      | off                        | This release and the one before, the three apps' builds alone (CI's `previous` job; `sync-previous` first) |
+| `--only-conformance`   | off                        | One build of each app and large-dom, and conformance on them, measuring nothing (CI's `conformance` job)   |
+| `--out`                | `results/<version>/<date>` | Where the two files go                                                                                     |
 
-CI runs the session as two jobs and joins their files with
-`bun src/merge.ts <session>/results.json <scale-curve>/results.json --out <folder>`.
+CI runs the session as four jobs, the measuring one with `--no-scale-curve --no-conformance`, and
+joins their files with
+`bun src/merge.ts <session>/results.json <scale-curve>/results.json <previous>/results.json <conformance>/results.json --out <folder>`;
+each part says which it is in its file (`meta.part`).
 
 Its parts also run on their own, printing their raw samples as JSON:
 

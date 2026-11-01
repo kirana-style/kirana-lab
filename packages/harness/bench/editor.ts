@@ -85,6 +85,9 @@ function sources(): string[] {
   return out.sort()
 }
 
+/** How long a request may wait for its answer; indexing the three apps takes seconds. */
+const REPLY_TIMEOUT = 120_000
+
 /** A language-server client over stdio: requests, and the diagnostics a document is waiting for. */
 function client(server: ChildProcess) {
   let buffer = Buffer.alloc(0)
@@ -122,10 +125,25 @@ function client(server: ChildProcess) {
   }
   return {
     send,
-    request: (method: string, params: unknown) =>
-      new Promise<void>((resolve) => {
+    /**
+     * One request, answered within `timeout` milliseconds or failed: a server that stops answering
+     * ends the session in minutes, not when the job's time runs out.
+     */
+    request: (method: string, params: unknown, timeout = REPLY_TIMEOUT) =>
+      new Promise<void>((resolve, reject) => {
         const id = nextId++
-        pending.set(id, resolve)
+        const timer = setTimeout(() => {
+          pending.delete(id)
+          reject(
+            new Error(
+              `the language server did not answer ${method} within ${timeout / 1000} s`
+            )
+          )
+        }, timeout)
+        pending.set(id, () => {
+          clearTimeout(timer)
+          resolve()
+        })
         send({ id, method, params })
       }),
     /** The diagnostics for `uri`; after `timeout` milliseconds, `false` instead. */
@@ -167,85 +185,96 @@ async function session(files: string[], hovers: number, edits: number) {
     stdio: ["pipe", "pipe", "ignore"],
   })
   const lsp = client(server)
-  const started = performance.now()
-  await lsp.request("initialize", {
-    capabilities: { workspace: { workspaceFolders: true } },
-    rootUri: pathToFileURL(APPS[0]!).href,
-    workspaceFolders: APPS.map((app) => ({
-      uri: pathToFileURL(app).href,
-      name: path.basename(app),
-    })),
-  })
-  lsp.send({ method: "initialized", params: {} })
-  // The server indexes after the handshake; its first answer comes once that is done.
-  await lsp.request("workspace/symbol", { query: "" })
-  const indexing = performance.now() - started
-  const memoryIndexed = resident(server.pid!)
-
-  const targets: { uri: string; at: ReturnType<typeof position> }[] = []
-  for (const file of files) {
-    const text = readFileSync(file, "utf8")
-    const uri = pathToFileURL(file).href
-    // A file the server has nothing to say about may publish nothing; opening does not wait long.
-    const opened = lsp.published(uri, 2000)
-    lsp.send({
-      method: "textDocument/didOpen",
-      params: {
-        textDocument: { uri, languageId: "typescriptreact", version: 1, text },
-      },
+  try {
+    const started = performance.now()
+    await lsp.request("initialize", {
+      capabilities: { workspace: { workspaceFolders: true } },
+      rootUri: pathToFileURL(APPS[0]!).href,
+      workspaceFolders: APPS.map((app) => ({
+        uri: pathToFileURL(app).href,
+        name: path.basename(app),
+      })),
     })
-    await opened
-    for (const match of text.matchAll(/css\(|sx=|\b[a-z][A-Za-z]+(?=: )/g))
-      targets.push({ uri, at: position(text, match.index + 1) })
-  }
+    lsp.send({ method: "initialized", params: {} })
+    // The server indexes after the handshake; its first answer comes once that is done.
+    await lsp.request("workspace/symbol", { query: "" })
+    const indexing = performance.now() - started
+    const memoryIndexed = resident(server.pid!)
 
-  const hoverTimes: number[] = []
-  for (let index = 0; index < hovers; index++) {
-    const target = targets[Math.floor(random() * targets.length)]!
-    const at = performance.now()
-    await lsp.request("textDocument/hover", {
-      textDocument: { uri: target.uri },
-      position: target.at,
-    })
-    hoverTimes.push(performance.now() - at)
-  }
+    const targets: { uri: string; at: ReturnType<typeof position> }[] = []
+    for (const file of files) {
+      const text = readFileSync(file, "utf8")
+      const uri = pathToFileURL(file).href
+      // A file the server has nothing to say about may publish nothing; opening does not wait long.
+      const opened = lsp.published(uri, 2000)
+      lsp.send({
+        method: "textDocument/didOpen",
+        params: {
+          textDocument: {
+            uri,
+            languageId: "typescriptreact",
+            version: 1,
+            text,
+          },
+        },
+      })
+      await opened
+      for (const match of text.matchAll(/css\(|sx=|\b[a-z][A-Za-z]+(?=: )/g))
+        targets.push({ uri, at: position(text, match.index + 1) })
+    }
 
-  const editable = files.filter((file) =>
-    readFileSync(file, "utf8").includes('"1rem"')
-  )
-  const versions = new Map<string, number>()
-  const editTimes: number[] = []
-  for (let index = 0; index < edits; index++) {
-    const file = editable[Math.floor(random() * editable.length)]!
-    const uri = pathToFileURL(file).href
-    const original = readFileSync(file, "utf8")
-    const version = (versions.get(uri) ?? 1) + 1
-    versions.set(uri, version)
-    const text =
-      version % 2 === 0 ? original.replace('"1rem"', '"1.25rem"') : original
-    const done = lsp.published(uri)
-    const at = performance.now()
-    lsp.send({
-      method: "textDocument/didChange",
-      params: { textDocument: { uri, version }, contentChanges: [{ text }] },
-    })
-    if (!(await done))
-      throw new Error(`no diagnostics within 10 s of editing ${file}`)
-    editTimes.push(performance.now() - at)
-  }
-  const memoryEnd = resident(server.pid!)
-  await lsp.request("shutdown", null)
-  lsp.send({ method: "exit" })
-  await new Promise((resolve) => server.once("exit", resolve))
-  return {
-    targets: targets.length,
-    indexing,
-    hoverP50: percentile(hoverTimes, 50),
-    hoverP95: percentile(hoverTimes, 95),
-    diagnosticsP50: percentile(editTimes, 50),
-    diagnosticsP95: percentile(editTimes, 95),
-    memoryIndexed,
-    memoryEnd,
+    const hoverTimes: number[] = []
+    for (let index = 0; index < hovers; index++) {
+      const target = targets[Math.floor(random() * targets.length)]!
+      const at = performance.now()
+      await lsp.request("textDocument/hover", {
+        textDocument: { uri: target.uri },
+        position: target.at,
+      })
+      hoverTimes.push(performance.now() - at)
+    }
+
+    const editable = files.filter((file) =>
+      readFileSync(file, "utf8").includes('"1rem"')
+    )
+    const versions = new Map<string, number>()
+    const editTimes: number[] = []
+    for (let index = 0; index < edits; index++) {
+      const file = editable[Math.floor(random() * editable.length)]!
+      const uri = pathToFileURL(file).href
+      const original = readFileSync(file, "utf8")
+      const version = (versions.get(uri) ?? 1) + 1
+      versions.set(uri, version)
+      const text =
+        version % 2 === 0 ? original.replace('"1rem"', '"1.25rem"') : original
+      const done = lsp.published(uri)
+      const at = performance.now()
+      lsp.send({
+        method: "textDocument/didChange",
+        params: { textDocument: { uri, version }, contentChanges: [{ text }] },
+      })
+      if (!(await done))
+        throw new Error(`no diagnostics within 10 s of editing ${file}`)
+      editTimes.push(performance.now() - at)
+    }
+    const memoryEnd = resident(server.pid!)
+    await lsp.request("shutdown", null)
+    lsp.send({ method: "exit" })
+    await new Promise((resolve) => server.once("exit", resolve))
+    return {
+      targets: targets.length,
+      indexing,
+      hoverP50: percentile(hoverTimes, 50),
+      hoverP95: percentile(hoverTimes, 95),
+      diagnosticsP50: percentile(editTimes, 50),
+      diagnosticsP95: percentile(editTimes, 95),
+      memoryIndexed,
+      memoryEnd,
+    }
+  } catch (error) {
+    // The server may still be waiting, or writing: it must not outlive the session it failed.
+    server.kill()
+    throw error
   }
 }
 

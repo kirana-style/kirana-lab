@@ -68,10 +68,18 @@ function editorTable(results: Results): { lines: string[]; missed: string[] } {
       )
     return `| ${MEASURES[row.metric]?.label ?? row.metric} | ${cell(row)} | ${budget === undefined ? "–" : `≤ ${formatValue(budget, row.unit)}${over ? " **missed**" : ""}`} |`
   })
+  const failed = results.meta.editorFailed
   return {
     lines:
       rows.length === 0
-        ? []
+        ? failed
+          ? [
+              "## In the editor",
+              "",
+              `Kirana's own language server was not measured: ${failed}.`,
+              "",
+            ]
+          : []
         : [
             "## In the editor",
             "",
@@ -220,7 +228,7 @@ function previousSection(results: Results): string[] {
       (comparison) =>
         comparison.against === "kirana-previous" &&
         comparison.scenario === "build" &&
-        comparison.corpus.startsWith("three-way/") &&
+        comparison.corpus.startsWith("previous/") &&
         MEASURES[comparison.metric]?.judged !== false
     )
     .sort(
@@ -246,7 +254,7 @@ function previousSection(results: Results): string[] {
   const higher = versus.filter((comparison) => comparison.verdict === "higher")
   return [
     ...title,
-    `Kirana ${meta.kirana} over Kirana ${previous.kirana}, the release before it, installed from npm and built from the same sources in the same rounds: below 1 is lower for ${meta.kirana}.`,
+    `Kirana ${meta.kirana} over Kirana ${previous.kirana}, the release before it, installed from npm and built from the same sources in the same rounds${previous.machine?.runner ? ` on their own runner (${previous.machine.hardware.cpu}, ${previous.machine.hardware.cores} cores), beside the rest of the session: compare within this section, never with the tables above` : ""}: below 1 is lower for ${meta.kirana}.`,
     "",
     ...(higher.length === 0
       ? [`No measure is higher than in ${previous.kirana} with confidence.`]
@@ -403,7 +411,8 @@ export function renderReport(results: Results): string {
         .filter(
           (row) =>
             (row.tier === "A" || row.tier === "B") &&
-            !row.corpus.startsWith("scale-curve/")
+            !row.corpus.startsWith("scale-curve/") &&
+            !row.corpus.startsWith("previous/")
         )
         .map((row) => row.corpus)
     ),
@@ -530,7 +539,7 @@ export function renderReport(results: Results): string {
       : []),
     ...(measured.has("kirana-previous") && meta.previous
       ? [
-          `- **Kirana (previous release)** is the Kirana corpus copied with Kirana ${meta.previous.kirana} from npm in its place (\`scripts/sync-previous.ts\`): the same sources, and every other dependency at the version the corpus resolves. It joins the three apps' builds, without conformance, and its ratios are in **Against the previous release**, as ${meta.kirana} ÷ ${meta.previous.kirana}.`,
+          `- **Kirana (previous release)** is the Kirana corpus copied with Kirana ${meta.previous.kirana} from npm in its place (\`scripts/sync-previous.ts\`): the same sources, and every other dependency at the version the corpus resolves. It and Kirana build the three apps, interleaved, without conformance, and its ratios are in **Against the previous release**, as ${meta.kirana} ÷ ${meta.previous.kirana}.`,
         ]
       : []),
     ...(measured.has("stylex-swc")

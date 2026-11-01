@@ -74,7 +74,8 @@ and page opened, 300 hovers at style positions in a seeded order, and 60 edits o
 each timed to the diagnostics that follow. A round records its p50 and p95, and the server's
 resident memory after indexing and at the end. `kirana-style check` over the web app and the UI
 package is timed cold in the same rounds. A missed budget is listed first in "Where Kirana is
-behind".
+behind". A request the server leaves unanswered for two minutes ends the editor's measure, and the
+report says it was not measured and why; the rest of the session stands.
 
 ### StyleX, compiled two ways
 
@@ -115,14 +116,17 @@ Kirana both ways, from the release that has it (`packages/harness/src/targets.ts
 Two sessions run on two machines: a hosted runner's image changes from one week to the next, and
 it moves every tool's numbers, as much as a release would. So a release is never compared with the
 number the previous session published for the one before (rule 6): each session builds that release
-too, in the same rounds.
+too, beside this one in the same rounds, on one machine.
 
 - **Same sources, the release before.** `scripts/sync-previous.ts` copies the three apps, the
   packages they use, the root manifest and its lockfile into `baselines/kirana-previous`, pins the
   release before the measured one (the newest earlier release on npm, pre-releases left out) and
   installs it. Every other dependency resolves as the root's does.
-- **The builds only.** It joins the three apps' builds (tiers A and B), interleaved like any other
-  target. The browser, large-dom, the scale curve and the editor measure the release under test.
+- **The builds only, on a runner of its own.** This release and the previous one build the three
+  apps (tiers A and B), interleaved, in a job of their own (`run.ts --only-previous`), and nothing
+  else: the browser, large-dom, the scale curve and the editor measure the release under test. Both
+  columns of its section come from that one machine; its cells are the `previous/<app>` corpora,
+  apart from the tools', and the report names its machine.
 - **A release that cannot build today's corpus** (the corpus uses an API added since, or the copy
   does not install) is left out, and the report says why: the comparison is never made on part of
   the corpus.
@@ -154,9 +158,13 @@ too, in the same rounds.
 5. **Cold builds labelled.** Caches are removed before a cold build.
 6. **One machine, one session.** All of them are measured on the same machine in the same run, and
    numbers from different runs are never compared. A release is set against the one before only
-   through the previous-release target of one session.
+   where both were built on one machine, in the same rounds (the previous-release job).
 7. **Feature parity.** Where one cannot express what the others do, the result says so.
 8. **Correctness first.** An implementation's numbers count only if its conformance run passed.
+   Conformance needs one build of each implementation and gives no number, so CI runs it as a job
+   of its own beside the measuring session, on the same commit and release (`run.ts
+   --only-conformance`): the builds are the same output, and the measures are taken whatever it
+   finds. A session it did not pass is published as a prerelease, which the site never reads.
 9. **Only shared applications.** An app that exists for one implementation and not the others is
    not measured.
 

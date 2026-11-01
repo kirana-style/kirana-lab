@@ -17,19 +17,27 @@
  *                  [--apps web,blocks,examples] [--runtime-app web]
  *                  [--large-dom-sizes 1000,5000] [--large-dom-throttle 4] [--no-large-dom]
  *                  [--scale-curve-sizes 100,1000,10000] [--no-scale-curve | --only-scale-curve]
- *                  [--no-editor] [--no-conformance] [--no-runtime] [--no-dense] [--no-previous]
+ *                  [--no-editor] [--no-conformance] [--no-runtime] [--no-dense]
+ *                  [--only-previous | --only-conformance]
  *                  [--out <folder>]
  *
  * `kirana-dense`, the corpus built with dense class names (`src/targets.ts`), is measured beside
  * `kirana` when the release has them; `--no-dense` leaves it out.
  *
- * `kirana-previous`, the corpus at the release before (`scripts/sync-previous.ts`), joins the three
- * apps' builds when it was prepared, so this release is compared with the last one on this machine,
- * in these rounds; `--no-previous` leaves it out.
+ * `--only-previous` builds the three apps with this release and with the one before
+ * (`kirana-previous`, prepared by `scripts/sync-previous.ts`), interleaved, and nothing else: this
+ * release is compared with the last one on one machine, in the same rounds. Its cells are the
+ * `previous/<app>` corpora, apart from the tools' `three-way/<app>`.
  *
- * CI runs the scale-curve corpus as a job of its own (`--only-scale-curve`), beside the rest
- * (`--no-scale-curve`), and joins the two files with `src/merge.ts`: StyleX's Babel build of
- * 10,000 components alone takes most of an hour, and one runner would not finish both in time.
+ * `--only-conformance` builds each app once with every implementation, large-dom too, and runs
+ * conformance on them (fairness rule 8), measuring nothing: conformance needs one build, not the
+ * rounds, and gives no number, so it need not share the measuring session's machine or time.
+ *
+ * CI runs the scale curve, the previous release and conformance as jobs of their own
+ * (`--only-scale-curve`, `--only-previous`, `--only-conformance`), beside the measuring session
+ * (`--no-scale-curve --no-conformance`), and joins the files with `src/merge.ts`: StyleX's Babel
+ * build of 10,000 components alone takes most of an hour, and one runner would not finish them all
+ * in time.
  *
  * The folder defaults to `results/<kirana version>/<date>` at the repository root.
  */
@@ -75,30 +83,42 @@ const largeDomSizes = option("large-dom-sizes", "1000,5000")
   .split(",")
   .map(Number)
 const largeDomThrottle = Number(option("large-dom-throttle", "4"))
-// Only the scale curve, for its own CI job: none of the three-way, browser or large-dom work.
+// Only the scale curve, or only the previous release, each for its own CI job: none of the rest.
 const onlyScale = flag("only-scale-curve")
-const largeDom = !onlyScale && !flag("no-large-dom")
-const scaleCurve = onlyScale || !flag("no-scale-curve")
+const onlyPrevious = flag("only-previous")
+const onlyConformance = flag("only-conformance")
+const only = onlyScale || onlyPrevious || onlyConformance
+// Conformance needs the large-dom app built; the measuring session drives it in the browser.
+const largeDom = !onlyScale && !onlyPrevious && !flag("no-large-dom")
+const scaleCurve = onlyScale || (!only && !flag("no-scale-curve"))
 const scaleCurveSizes = option("scale-curve-sizes", SIZES.join(","))
   .split(",")
   .map(Number)
 const apps = onlyScale ? [] : option("apps", "web,blocks,examples").split(",")
-const runtime = !onlyScale && !flag("no-runtime")
-const editor = !onlyScale && !flag("no-editor")
+const runtime = !only && !flag("no-runtime")
+const editor = !only && !flag("no-editor")
 
 const started = new Date()
 const { kirana, targets } = versions()
-/** The targets every step measures; the builds of the three apps may add the previous release. */
+/** The targets every step of the session measures. */
 const sessionTargets = targetsOf(kirana, { dense: !flag("no-dense") })
-const dense = sessionTargets.includes("kirana-dense")
-/** The previous release, when `scripts/sync-previous.ts` prepared it and the three apps are built. */
-const previous =
-  apps.length > 0 && !flag("no-previous") ? prepared() : undefined
-/** The builds of the three apps also take the previous release, when it builds today's corpus. */
-const buildTargets: Target[] =
-  previous && previous.skipped === undefined
-    ? [...sessionTargets, "kirana-previous"]
-    : sessionTargets
+const dense = !onlyPrevious && sessionTargets.includes("kirana-dense")
+/** The previous release `scripts/sync-previous.ts` prepared, or why it holds none. */
+const previous = onlyPrevious ? prepared() : undefined
+if (onlyPrevious && !previous)
+  throw new Error(
+    "--only-previous measures the release before: run `bun scripts/sync-previous.ts` first"
+  )
+/**
+ * What the three apps' builds compare: the session's targets, or this release and the one before,
+ * when that one builds today's corpus.
+ */
+const buildTargets: Target[] = !onlyPrevious
+  ? sessionTargets
+  : previous?.skipped === undefined
+    ? ["kirana", "kirana-previous"]
+    : []
+const corpus = onlyPrevious ? "previous" : "three-way"
 const denseFlag = dense ? ["--dense"] : []
 const { hardware, runner, run } = machine()
 const out = path.resolve(
@@ -120,24 +140,28 @@ const roots: Record<Target, string> = {
 
 // 1. Builds.
 const cells: Cell[] = []
-if (apps.length > 0) {
+if (apps.length > 0 && buildTargets.length > 0) {
+  // Conformance reads one build of each; the rounds are for the measures.
+  const [buildRounds, buildWarmup] = onlyConformance ? [1, 0] : [rounds, warmup]
   console.error(
-    `builds: ${apps.join(", ")}, ${warmup} warm-up and ${rounds} rounds`
+    `builds: ${apps.join(", ")}, ${buildWarmup} warm-up and ${buildRounds} rounds`
   )
   const builds = measureBuilds({
     labels: buildTargets.map((target) => [target, roots[target]] as const),
     apps,
-    rounds,
-    warmup,
+    rounds: buildRounds,
+    warmup: buildWarmup,
   })
 
-  for (const metric of Object.keys(BUILD_METRICS) as BuildMetric[]) {
+  for (const metric of onlyConformance
+    ? []
+    : (Object.keys(BUILD_METRICS) as BuildMetric[])) {
     const unit = BUILD_METRICS[metric]
     const tier = metric === "build" ? "A" : "B"
     for (const app of apps) {
       cells.push({
         tier,
-        corpus: `three-way/${app}`,
+        corpus: `${corpus}/${app}`,
         scenario: "build",
         metric,
         unit,
@@ -150,7 +174,7 @@ if (apps.length > 0) {
     // The corpus total: each round's sum over the apps, so it keeps one sample per round.
     cells.push({
       tier,
-      corpus: "three-way/total",
+      corpus: `${corpus}/total`,
       scenario: "build",
       metric,
       unit,
@@ -172,9 +196,9 @@ if (apps.length > 0) {
 
 // 2. Conformance on the builds just made.
 const conformance: Meta["conformance"] = Object.fromEntries(
-  apps.map((app) => [app, "not run" as const])
+  (onlyPrevious ? [] : apps).map((app) => [app, "not run" as const])
 )
-if (!flag("no-conformance")) {
+if (!onlyPrevious && !flag("no-conformance")) {
   for (const app of apps) {
     console.error(`conformance: ${app}`)
     const result = spawnSync(
@@ -243,7 +267,9 @@ if (largeDom) {
     rounds: 1,
     warmup: 0,
   })
-  for (const metric of Object.keys(BUILD_METRICS) as BuildMetric[]) {
+  for (const metric of onlyConformance
+    ? []
+    : (Object.keys(BUILD_METRICS) as BuildMetric[])) {
     if (metric === "build") continue
     cells.push({
       tier: "B",
@@ -275,58 +301,61 @@ if (largeDom) {
     )
     conformance["large-dom"] = result.status === 0 ? "passed" : "failed"
   } else conformance["large-dom"] = "not run"
-  console.error(
-    `large-dom: ${largeDomSizes.join(", ")} rows, ${runtimeRounds} rounds at ${largeDomThrottle}×`
-  )
-  const measured = await measureLargeDom({
-    sizes: largeDomSizes,
-    rounds: runtimeRounds,
-    throttle: largeDomThrottle,
-    serve: true,
-    dense,
-  })
-  chrome ??= measured.chrome
-  const units: Record<keyof LargeDomSamples, string> = {
-    filter: "ms",
-    filterRecalc: "ms",
-    filterLayout: "ms",
-    restore: "ms",
-    restoreRecalc: "ms",
-    restoreLayout: "ms",
-    scrollP95: "ms",
-    scrollRecalc: "ms",
-    hoverRecalc: "ms",
-    heap: "bytes",
-  }
-  for (const rows of largeDomSizes) {
-    const size = measured.sizes[rows]!
-    for (const metric of ["html", "classBytes"] as const)
-      cells.push({
-        tier: "B",
-        corpus: `large-dom/${rows}`,
-        scenario: "build",
-        metric,
-        unit: "bytes",
-        labels: ["rendered"],
-        samples: Object.fromEntries(
-          sessionTargets.map((target) => [target, [size[metric][target]!]])
-        ) as Record<Target, number[]>,
-      })
-    for (const metric of Object.keys(units) as (keyof LargeDomSamples)[])
-      cells.push({
-        tier: "C",
-        corpus: `large-dom/${rows}`,
-        scenario: `CPU throttled ${largeDomThrottle}×, about ${size.elements.kirana} elements`,
-        metric,
-        unit: units[metric],
-        labels: [`throttle-${largeDomThrottle}`],
-        samples: Object.fromEntries(
-          sessionTargets.map((target) => [
-            target,
-            size.samples[target]![metric],
-          ])
-        ) as Record<Target, number[]>,
-      })
+  // The browser half: the measuring session alone.
+  if (!onlyConformance) {
+    console.error(
+      `large-dom: ${largeDomSizes.join(", ")} rows, ${runtimeRounds} rounds at ${largeDomThrottle}×`
+    )
+    const measured = await measureLargeDom({
+      sizes: largeDomSizes,
+      rounds: runtimeRounds,
+      throttle: largeDomThrottle,
+      serve: true,
+      dense,
+    })
+    chrome ??= measured.chrome
+    const units: Record<keyof LargeDomSamples, string> = {
+      filter: "ms",
+      filterRecalc: "ms",
+      filterLayout: "ms",
+      restore: "ms",
+      restoreRecalc: "ms",
+      restoreLayout: "ms",
+      scrollP95: "ms",
+      scrollRecalc: "ms",
+      hoverRecalc: "ms",
+      heap: "bytes",
+    }
+    for (const rows of largeDomSizes) {
+      const size = measured.sizes[rows]!
+      for (const metric of ["html", "classBytes"] as const)
+        cells.push({
+          tier: "B",
+          corpus: `large-dom/${rows}`,
+          scenario: "build",
+          metric,
+          unit: "bytes",
+          labels: ["rendered"],
+          samples: Object.fromEntries(
+            sessionTargets.map((target) => [target, [size[metric][target]!]])
+          ) as Record<Target, number[]>,
+        })
+      for (const metric of Object.keys(units) as (keyof LargeDomSamples)[])
+        cells.push({
+          tier: "C",
+          corpus: `large-dom/${rows}`,
+          scenario: `CPU throttled ${largeDomThrottle}×, about ${size.elements.kirana} elements`,
+          metric,
+          unit: units[metric],
+          labels: [`throttle-${largeDomThrottle}`],
+          samples: Object.fromEntries(
+            sessionTargets.map((target) => [
+              target,
+              size.samples[target]![metric],
+            ])
+          ) as Record<Target, number[]>,
+        })
+    }
   }
 }
 
@@ -346,9 +375,18 @@ if (scaleCurve) {
 
 // 5b. The editor: Kirana's language server and check, against their budgets.
 let editorScenario = ""
-if (editor) {
-  console.error(`editor: ${warmup} warm-up and ${rounds} sessions`)
-  const measured = await measureEditor({ rounds, warmup })
+/** Why the editor was not measured: a language server that stopped answering. */
+let editorFailed: string | undefined
+if (editor) console.error(`editor: ${warmup} warm-up and ${rounds} sessions`)
+const measuredEditor = editor
+  ? await measureEditor({ rounds, warmup }).catch((error: Error) => {
+      editorFailed = error.message
+      console.error(`editor: not measured, ${editorFailed}`)
+      return undefined
+    })
+  : undefined
+if (measuredEditor) {
+  const measured = measuredEditor
   editorScenario = `the three apps, ${measured.files} files open, ${measured.hovers} hovers and ${measured.edits} edits a session`
   const units: Record<keyof EditorSamples, string> = {
     indexing: "ms",
@@ -393,10 +431,18 @@ const results: Results = {
       warmup,
       ...(largeDom ? { largeDom: runtimeRounds } : {}),
       ...(scaleCurve ? { scaleCurve: rounds } : {}),
-      ...(editor ? { editor: rounds } : {}),
+      ...(measuredEditor ? { editor: rounds } : {}),
     },
     conformance,
     ...(previous ? { previous } : {}),
+    ...(editorFailed ? { editorFailed } : {}),
+    ...(onlyScale
+      ? { part: "scaleCurve" as const }
+      : onlyPrevious
+        ? { part: "previous" as const }
+        : onlyConformance
+          ? { part: "conformance" as const }
+          : {}),
   },
   ...tabulate(cells),
 }
