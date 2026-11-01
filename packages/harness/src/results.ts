@@ -9,7 +9,8 @@ import type { Ratio, Summary } from "./stats.ts"
 /**
  * StyleX twice: compiled by its Babel plugin, and by the Rust (SWC) compiler. Kirana three times:
  * as published, with dense class names (`src/targets.ts`), measured from the release that has
- * them, and at the release before (`kirana-previous`), in the builds only.
+ * them, and at the release before (`kirana-previous`), beside Kirana alone in the `previous/<app>`
+ * builds.
  */
 export const TARGETS = [
   "kirana",
@@ -28,8 +29,15 @@ export const OTHERS = TARGETS.filter(
 
 export type Tier = "A" | "B" | "C" | "D"
 
-/** What `scripts/sync-previous.ts` prepared: the previous release, or why it is left out. */
-export type Previous = { kirana: string; skipped?: string }
+/**
+ * What `scripts/sync-previous.ts` prepared: the previous release, or why it is left out; and the
+ * machine of the job that measured it, when that was not the session's (`src/merge.ts`).
+ */
+export type Previous = {
+  kirana: string
+  skipped?: string
+  machine?: Pick<Meta, "hardware" | "runner" | "run">
+}
 
 export type Meta = {
   /** ISO date and time the run started. */
@@ -68,6 +76,13 @@ export type Meta = {
   previous?: Previous
   /** Conformance per app, run before the numbers are trusted (fairness rule 8). */
   conformance: Record<string, "passed" | "failed" | "not run">
+  /** Why the editor (tier D) was not measured: its language server stopped answering. */
+  editorFailed?: string
+  /**
+   * Which part of a CI session the file is, when a job of its own measured it (`src/merge.ts`):
+   * the scale curve, the previous release, or conformance; absent for the measuring session.
+   */
+  part?: "scaleCurve" | "previous" | "conformance"
 }
 
 /** One cell: an implementation's samples of one metric, in one scenario, on one corpus. */
@@ -75,7 +90,8 @@ export type Row = Summary & {
   tier: Tier
   /**
    * `three-way/web`, …, or `three-way/total` for the sum of the apps; `large-dom` for that app's
-   * build, and `large-dom/<rows>` for its page at one size.
+   * build, and `large-dom/<rows>` for its page at one size; `previous/web`, … for the same apps
+   * built by this release and the one before.
    */
   corpus: string
   target: Target

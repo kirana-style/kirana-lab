@@ -335,13 +335,24 @@ describe("renderReport", () => {
           labels: ["cold"],
           samples: {
             kirana: [1100, 1110, 1090],
-            "kirana-previous": [1000, 1010, 990],
             stylex: [3000, 3030, 2970],
           },
         },
         {
+          tier: "A",
+          corpus: "previous/total",
+          scenario: "build",
+          metric: "build",
+          unit: "ms",
+          labels: ["cold"],
+          samples: {
+            kirana: [1100, 1110, 1090],
+            "kirana-previous": [1000, 1010, 990],
+          },
+        },
+        {
           tier: "B",
-          corpus: "three-way/web",
+          corpus: "previous/web",
           scenario: "build",
           metric: "cssGzip",
           unit: "bytes",
@@ -349,7 +360,6 @@ describe("renderReport", () => {
           samples: {
             kirana: [17_000, 17_000, 17_000],
             "kirana-previous": [17_700, 17_700, 17_700],
-            stylex: [9_300, 9_300, 9_300],
           },
         },
       ]),
@@ -369,6 +379,8 @@ describe("renderReport", () => {
       report.indexOf("## Against the previous release")
     )
     expect(behind).not.toContain("previous")
+    // Its builds are its own corpus, never one of the tools' tables.
+    expect(report.match(/^### All apps$/gm)).toHaveLength(1)
     expect(report).not.toContain("Kirana ÷ Kirana (previous release)")
     expect(report).toContain("# Kirana 0.3.5, measured against StyleX\n")
     expect(report).toContain(

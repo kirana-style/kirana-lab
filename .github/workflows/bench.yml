@@ -31,9 +31,12 @@ concurrency:
   group: bench
   cancel-in-progress: false
 
-# The scale curve is a job of its own, on its own runner beside the session: StyleX's Babel build
-# of 10,000 components alone takes most of an hour. Each job compares the four implementations on
-# its one machine; `publish` joins the two files (`src/merge.ts`) and records both machines.
+# Four jobs side by side, each on its own runner and well inside a job's time limit: the measuring
+# session; the scale curve (StyleX's Babel build of 10,000 components alone takes most of an hour);
+# the previous release; and conformance, which needs one build per implementation, not the rounds,
+# and gives no number. Each job compares what it measures on its one machine; `publish` joins the
+# files (`src/merge.ts`) and records every machine. A session whose conformance did not pass is
+# still published, as a prerelease.
 jobs:
   bench:
     runs-on: ubuntu-26.04
@@ -44,18 +47,16 @@ jobs:
         with:
           persist-credentials: false
 
-      # With the release before, so the report sets this one against it on this machine.
       - uses: ./.github/actions/prepare
         with:
           version: ${{ github.event.client_payload.version || inputs.version || 'latest' }}
-          previous: "true"
 
       - name: Measure
         env:
           KIRANA_CHROME_CHANNEL: chrome
           ROUNDS: ${{ inputs.rounds || '10' }}
           RUNTIME_ROUNDS: ${{ inputs.runtime-rounds || '20' }}
-        run: bun packages/harness/src/run.ts --rounds "$ROUNDS" --runtime-rounds "$RUNTIME_ROUNDS" --no-scale-curve --out bench-out
+        run: bun packages/harness/src/run.ts --rounds "$ROUNDS" --runtime-rounds "$RUNTIME_ROUNDS" --no-scale-curve --no-conformance --out bench-out
 
       - name: Keep the results
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -88,8 +89,63 @@ jobs:
           name: scale-curve-${{ github.run_number }}
           path: scale-out
 
+  # This release and the one before build the three apps, interleaved, on one machine.
+  previous:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/prepare
+        with:
+          version: ${{ github.event.client_payload.version || inputs.version || 'latest' }}
+          previous: "true"
+
+      - name: Measure
+        env:
+          ROUNDS: ${{ inputs.rounds || '10' }}
+        run: bun packages/harness/src/run.ts --rounds "$ROUNDS" --only-previous --out previous-out
+
+      - name: Keep the results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: previous-${{ github.run_number }}
+          path: previous-out
+
+  # Every implementation's build of the three apps and large-dom, checked element by element
+  # against Kirana's (fairness rule 8) while the session measures.
+  conformance:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/prepare
+        with:
+          version: ${{ github.event.client_payload.version || inputs.version || 'latest' }}
+
+      - name: Check
+        env:
+          KIRANA_CHROME_CHANNEL: chrome
+        run: bun packages/harness/src/run.ts --only-conformance --out conformance-out
+
+      - name: Keep the results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: conformance-${{ github.run_number }}
+          path: conformance-out
+
+  # The measures are published whatever the other parts did: without conformance the release is a
+  # prerelease, which the site never reads; without the previous release, its section is left out.
   publish:
-    needs: [bench, scale-curve]
+    needs: [bench, scale-curve, previous, conformance]
+    if: ${{ !cancelled() && needs.bench.result == 'success' && needs.scale-curve.result == 'success' }}
     runs-on: ubuntu-26.04
     permissions:
       # The release that carries the results.
@@ -116,8 +172,25 @@ jobs:
           name: scale-curve-${{ github.run_number }}
           path: scale-out
 
-      - name: Join the two halves
-        run: bun packages/harness/src/merge.ts bench-out/results.json scale-out/results.json --out results-out
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.previous.result == 'success'
+        with:
+          name: previous-${{ github.run_number }}
+          path: previous-out
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.conformance.result == 'success'
+        with:
+          name: conformance-${{ github.run_number }}
+          path: conformance-out
+
+      - name: Join the parts
+        run: |
+          parts=(scale-out/results.json)
+          for part in previous-out conformance-out; do
+            if [ -f "$part/results.json" ]; then parts+=("$part/results.json"); fi
+          done
+          bun packages/harness/src/merge.ts bench-out/results.json "${parts[@]}" --out results-out
 
       - name: Keep the results
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
