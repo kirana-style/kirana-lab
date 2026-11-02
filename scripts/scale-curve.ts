@@ -17,7 +17,8 @@
  *
  * Each implementation writes them its own way, from its own tokens: Kirana with `css()`, `recipe()`
  * and `relation()`; StyleX with `stylex.create()`, a variant map and `stylex.when.ancestor` with a
- * marker; Tailwind CSS with utilities, `cva` and a named group. StyleX (SWC) builds the StyleX
+ * marker; Tailwind CSS with utilities, `cva` and a named group. Each component imports the token
+ * modules it reads and no others, as one written by hand would. StyleX (SWC) builds the StyleX
  * sources, so they are written to both StyleX checkouts.
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
@@ -116,8 +117,7 @@ function kirana(spec: Spec): string {
   ]
   return `import { css, recipe${spec.relation ? ", relation" : ""} } from "@kirana-style/core"
 
-import { breakpoint } from "@workspace/ui/tokens/breakpoints"
-import { radius, theme } from "@workspace/ui/theme/semantic"
+${spec.breakpoint ? `import { breakpoint } from "@workspace/ui/tokens/breakpoints"\n` : ""}import { radius, theme } from "@workspace/ui/theme/semantic"
 import { spacing } from "@workspace/ui/tokens/spacing"
 import { fontSize, fontWeight, lineHeight } from "@workspace/ui/tokens/typography"
 ${spec.relation ? `\nconst card = relation("${spec.name.toLowerCase()}")\n` : ""}
@@ -179,8 +179,7 @@ function stylex(spec: Spec): string {
   ]
   return `import * as stylex from "@stylexjs/stylex"
 
-import { breakpoint } from "@workspace/ui/tokens/breakpoints.stylex"
-import { radius, theme } from "@workspace/ui/theme/semantic.stylex"
+${spec.breakpoint ? `import { breakpoint } from "@workspace/ui/tokens/breakpoints.stylex"\n` : ""}import { radius, theme } from "@workspace/ui/theme/semantic.stylex"
 import { spacing } from "@workspace/ui/tokens/spacing.stylex"
 import { fontSize, fontWeight, lineHeight } from "@workspace/ui/tokens/typography.stylex"
 ${spec.relation ? `import { ${marker} } from "./markers.stylex"\n` : ""}
