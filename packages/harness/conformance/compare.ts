@@ -785,6 +785,32 @@ async function settle(page: Page, pause = 300) {
   await page.waitForTimeout(pause)
 }
 
+/**
+ * After a resize, until the page's layout holds still: the boxes of its `[data-slot]` elements read
+ * the same twice in a row. A page that switches layout from script after a resize (a sidebar that
+ * becomes a sheet once `useIsMobile` answers) is captured in its new layout, not halfway; the
+ * fixed wait before this let the 390px captures of upstream's sidebar blocks go either way.
+ */
+async function settleLayout(page: Page, timeout = 3000) {
+  const signature = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll("[data-slot]")]
+        .map((element) => {
+          const box = element.getBoundingClientRect()
+          return `${element.getAttribute("data-slot")} ${Math.round(box.x)} ${Math.round(box.y)} ${Math.round(box.width)} ${Math.round(box.height)}`
+        })
+        .join("|")
+    )
+  let previous = await signature().catch(() => "")
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    await page.waitForTimeout(150)
+    const current = await signature().catch(() => "")
+    if (current === previous) return
+    previous = current
+  }
+}
+
 /** A route as compared: path and query, without the viewer's `theme` parameter. */
 function routeOf(href: string, origin: string): string | undefined {
   const url = new URL(href, origin)
@@ -948,6 +974,7 @@ async function capture(browser: Browser, url: string) {
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 })
       await page.waitForTimeout(350)
+      await settleLayout(page)
       await repainted(page, scheme)
       snapshots.set(`${scheme} ${width}`, await snapshot(page))
     }
