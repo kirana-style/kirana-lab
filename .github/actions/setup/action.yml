@@ -1,0 +1,56 @@
+name: Setup
+description: Vite+ with Node.js and Bun, the corpus and every baseline installed, and the task cache restored.
+
+# What ci.yml's jobs start from. bench.yml's measuring jobs start from `prepare`, which pins a Kirana
+# release first.
+
+inputs:
+  task-cache:
+    description: Restore the `vp run` task cache (and save it on `main`). A job whose tasks are never cached leaves it off.
+    default: "true"
+
+runs:
+  using: composite
+
+  steps:
+    # Node.js from .node-version and Bun from package.json's `packageManager`, then the corpus.
+    # `cache-toolchain` keeps Vite+, Node.js and Bun themselves between runs, keyed by their versions.
+    - name: Setup Vite+
+      uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0
+      with:
+        node-version-file: .node-version
+        cache: true
+        cache-toolchain: true
+        run-install: |
+          - args: ["--frozen-lockfile"]
+
+    # The baselines are workspaces of their own, each with its own lockfile. The SWC baseline builds
+    # the StyleX baseline's apps, copied in before it installs.
+    - name: Install the baselines
+      shell: bash
+      run: |
+        (cd baselines/stylex && bun install --frozen-lockfile)
+        bun scripts/sync-stylex-swc.ts
+        (cd baselines/stylex-swc && bun install --frozen-lockfile)
+        (cd baselines/tailwind && bun install --frozen-lockfile)
+
+    # The `vp run` task cache (vite.config.ts → run.tasks): a task whose inputs did not change replays
+    # its output. Each run on `main` saves a new entry, and every run restores the newest one for its
+    # job and platform; other branches only restore, so their entries never evict main's. Vite Task
+    # fingerprints the inputs itself, so none belong in the key (Vite+'s "GitHub Actions Cache"
+    # guide; reusing it across runs is experimental there).
+    - name: Cache vp tasks
+      if: inputs.task-cache == 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: node_modules/.vite/task-cache
+        key: vite-task-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: vite-task-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
+
+    - name: Restore vp tasks
+      if: inputs.task-cache == 'true' && github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: node_modules/.vite/task-cache
+        key: vite-task-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: vite-task-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-

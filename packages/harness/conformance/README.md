@@ -71,7 +71,10 @@ property and optional route pattern (a regular expression), with a reason; it is
 
 1. The prerequisites in the root README: Bun, then `bun install` here and in each baseline.
 2. Chrome for the harness: `bunx playwright install chromium`, or an installed
-   Google Chrome with `KIRANA_CHROME_CHANNEL=chrome`.
+   Google Chrome with `KIRANA_CHROME_CHANNEL=chrome`. The harness launches it without the GPU
+   (`--disable-gpu --disable-software-rasterizer`): headless Chrome can otherwise stop drawing
+   frames, and a page that switches its theme from a `prefers-color-scheme` listener (shadcn/ui's)
+   then never hears the scheme change and is captured light in the dark scheme.
 3. The baselines are in `baselines/`: the StyleX, StyleX (SWC) and Tailwind builds of the same
    apps. Elsewhere, point `STYLEX_DIR`, `STYLEX_SWC_DIR` and `TAILWIND_DIR` at other checkouts
    (paths relative to this repository's root).

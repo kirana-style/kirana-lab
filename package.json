@@ -64,7 +64,7 @@
       "embla-carousel-react": "8.6.0",
       "input-otp": "1.5.0",
       "kirana-style": "0.2.3",
-      "playwright": "1.64.0",
+      "playwright": "1.64.1",
       "react": "19.3.1",
       "react-day-picker": "10.0.2",
       "react-dom": "19.3.1",
@@ -74,7 +74,7 @@
       "recharts": "3.10.1",
       "typescript": "7.0.2",
       "vite": "8.3.4",
-      "vite-plus": "1.1.0",
+      "vite-plus": "1.6.0",
       "zod": "4.6.7"
     }
   }
