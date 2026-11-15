@@ -150,7 +150,8 @@ Pages built of titled examples, as upstream's are, compare best with `--group '[
 each element is keyed by its example's title (`Basic › button[data-slot="button"]#2`), so an example
 one site leaves out is reported once, under its title, instead of shifting every pair after it. An
 exception then names an element by its key within the group, or a whole group by its title
-(`"With Avatar › "`). A state neither site reaches is skipped without a report: check that the
+(`"With Avatar › "`). A popup in the top layer (`[popover]`, rendered in place) is keyed without
+a group, as a portalled one is. A state neither site reaches is skipped without a report: check that the
 states you expect ran.
 
 ## Reading the result

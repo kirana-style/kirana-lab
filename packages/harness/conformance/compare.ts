@@ -28,7 +28,8 @@
  * `--group <selector>` pairs elements within groups rather than across the page: an element inside
  * the closest match is keyed by that group's title (its first child's text) and counted within it,
  * so a group one site leaves out is reported once instead of shifting every pair after it. For
- * upstream's example pages, where each `[data-slot="example"]` has a title.
+ * upstream's example pages, where each `[data-slot="example"]` has a title. An element in the top
+ * layer (`[popover]`) has no group, as a portalled one has none.
  * `--trigger <state>=<selector>`, repeatable, names a state's trigger where both sites mark it
  * differently from these apps: React Aria's `DialogTrigger` renders no element, so its dialog opens
  * from the button inside (`--trigger 'dialog-open=[data-slot="example-content"] button'`).
@@ -369,7 +370,12 @@ async function snapshot(page: Page): Promise<Snapshot[]> {
       }
       return [...document.querySelectorAll<HTMLElement>("[data-slot]")].map(
         (element) => {
-          const owner = group ? element.closest(group) : null
+          // An element in the top layer (`[popover]`, where ui-sdk's popups render in place) is
+          // named as a portalled one is, with no group: the same popup, the same key.
+          const owner =
+            group && !element.closest("[popover]")
+              ? element.closest(group)
+              : null
           const prefix = owner ? `${labels.get(owner)} › ` : ""
           const base = `${prefix}${element.tagName.toLowerCase()}[data-slot="${element.dataset.slot}"]`
           const count = (counts.get(base) ?? 0) + 1
