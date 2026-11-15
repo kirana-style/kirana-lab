@@ -14,40 +14,65 @@ concurrency:
   cancel-in-progress: true
 
 # What a pull request must keep true: the lab checks itself, its harness tests pass, and every
-# implementation still builds. Measuring is bench.yml's job.
+# implementation still builds. Measuring is bench.yml's job. The checks and the builds run side by
+# side; `ci result` is the one check the ruleset requires.
 jobs:
   check:
     runs-on: ubuntu-26.04
-    name: checks, harness tests and builds
+    name: checks and harness tests
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # Node.js from .node-version and Bun from package.json's `packageManager`, then the corpus.
-      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
-        with:
-          node-version-file: .node-version
-          cache: true
-          run-install: |
-            - args: ["--frozen-lockfile"]
+      - uses: ./.github/actions/setup
 
-      # The baselines are workspaces of their own, each with its own lockfile. The SWC baseline builds
-      # the StyleX baseline's apps, copied in before it installs.
-      - name: Install the baselines
-        run: |
-          (cd baselines/stylex && bun install --frozen-lockfile)
-          bun scripts/sync-stylex-swc.ts
-          (cd baselines/stylex-swc && bun install --frozen-lockfile)
-          (cd baselines/tailwind && bun install --frozen-lockfile)
-
-      # Format, lint and types, then the shared versions and what the lockfiles resolve.
+      # Format, lint and types, then the shared versions and what the lockfiles resolve. Through
+      # `vp run`, so a check whose inputs did not change since `main` saved the cache replays.
       - name: Checks
         run: vp run check
 
       - name: Harness tests
         run: vp run test
 
+  build:
+    runs-on: ubuntu-26.04
+    name: builds
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The builds are what the benchmark measures, so they are never cached: no task cache here.
+      - uses: ./.github/actions/setup
+        with:
+          task-cache: "false"
+
       - name: Build every implementation
         run: vp run build
+
+  # The one check branch protection requires from this workflow, so adding or renaming a job never
+  # changes the ruleset. It always runs, and passes when every job passed or was skipped.
+  result:
+    name: ci result
+    if: always()
+    needs: [check, build]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success | skipped) ;;
+              *) echo "::error::a job ended in $result"; exit 1 ;;
+            esac
+          done

@@ -1,6 +1,10 @@
 import { defineConfig } from "vite-plus"
 
-/** The lab's own sources: the Kirana corpus, the harness and the scripts. */
+/**
+ * The lab's own sources: the Kirana corpus, the harness and the scripts. Named, not traced: the
+ * tasks run with `bun`, and Vite+ does not see the files a Bun process reads, so a traced task would
+ * replay a stale result after a change.
+ */
 const SOURCES = [
   "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json,jsonc,md,css,yml,yaml}",
   "!**/node_modules/**",
@@ -9,6 +13,25 @@ const SOURCES = [
   "!**/.tanstack/**",
   "!baselines/**",
   "!results/**",
+  // Local agent files: never part of a check.
+  "!.agents/**",
+  "!.claude/**",
+]
+
+/**
+ * The sources under some folders only, for a task that reads nothing else: a change outside them
+ * (the corpus, a workflow) leaves its cached result standing. What every task depends on is always
+ * in: the lockfile and the root's own configuration.
+ */
+const sourcesIn = (...folders: string[]) => [
+  ...folders.map(
+    (each) => `${each}/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json,jsonc,md,css}`
+  ),
+  ...SOURCES.filter((each) => each.startsWith("!")),
+  "bun.lock",
+  "package.json",
+  "tsconfig.json",
+  "vite.config.ts",
 ]
 
 /** One implementation's three apps, each built by its own `build` script (`vite build`). */
@@ -43,12 +66,13 @@ export default defineConfig({
       // The harness's own tests: the statistics, the CSS counts and the report.
       test: {
         command: "bun run --cwd packages/harness test",
-        cache: { input: SOURCES, output: [] },
+        cache: { input: sourcesIn("packages/harness"), output: [] },
       },
-      // Format, lint and types, then the workspaces' shared versions.
+      // Format, lint and types, then the workspaces' shared versions. Each of the three checks
+      // runs whatever an earlier one found, so one red run lists every problem.
       check: {
         command:
-          "vp check && bun scripts/sync-versions.ts --check && bun scripts/fairness.ts",
+          "vp check --continue-on-error && bun scripts/sync-versions.ts --check && bun scripts/fairness.ts",
         cache: {
           input: [
             ...SOURCES,

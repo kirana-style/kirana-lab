@@ -1127,8 +1127,13 @@ export async function main() {
       )
     )[label] ?? []
   // Playwright's bundled Chromium by default; KIRANA_CHROME_CHANNEL=chrome uses an installed Chrome.
+  // Without the GPU, so headless Chrome keeps drawing frames: with them stalled, a page that
+  // switches its theme from a `prefers-color-scheme` listener (shadcn/ui's next-themes) never hears
+  // the scheme change, since that event fires in the rendering step, and stays light in the dark
+  // capture; an animation-frame callback (Bits UI's scrollbars) never runs either.
   const browser = await chromium.launch({
     channel: process.env.KIRANA_CHROME_CHANNEL || undefined,
+    args: ["--disable-gpu", "--disable-software-rasterizer"],
   })
   browserVersion = browser.version()
   for (const [index, flag] of process.argv.entries()) {
