@@ -65,7 +65,8 @@ const styles = {
 
   button: css({
     position: "absolute",
-    insetInlineStart: "50%",
+    // Physical, because the translate that centres it has no logical form.
+    left: "50%",
     borderColor: theme.border,
     backgroundColor: { base: theme.background, ":hover": theme.muted },
     color: { base: theme.foreground, ":hover": theme.foreground },

@@ -53,7 +53,8 @@ const styles = stylex.create({
     zIndex: zIndex.popover,
     display: "grid",
     width: "100%",
-    translate: "-50% -50%",
+    // The original's `-translate-x-1/2` and its `rtl:translate-x-1/2` override.
+    translate: { default: "-50% -50%", ":dir(rtl)": "50% -50%" },
     gap: spacing[4],
     borderRadius: radius.xl,
     backgroundColor: theme.popover,

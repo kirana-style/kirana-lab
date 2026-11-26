@@ -38,9 +38,9 @@ const styles = stylex.create({
     display: "grid",
     width: "100%",
     maxWidth: { default: "calc(100% - 2rem)", [breakpoint.sm]: "24rem" },
-    // `translate` follows writing direction, so this one value replaces the
-    // original's `-translate-x-1/2` plus its `rtl:translate-x-1/2` override.
-    translate: "-50% -50%",
+    // `translate` has no logical form, so right to left it pulls the other way:
+    // the original's `-translate-x-1/2` and its `rtl:translate-x-1/2` override.
+    translate: { default: "-50% -50%", ":dir(rtl)": "50% -50%" },
     gap: spacing[4],
     borderRadius: radius.xl,
     backgroundColor: theme.popover,

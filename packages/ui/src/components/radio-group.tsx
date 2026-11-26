@@ -66,9 +66,9 @@ const styles = {
     top: "50%",
     width: spacing[2],
     height: spacing[2],
-    // `-translate-x-1/2` flips direction in RTL, which logical properties do not
-    // cover, so the inline axis is handled explicitly.
-    translate: "-50% -50%",
+    // `translate` has no logical form, so the inline axis flips by hand: the
+    // original's `-translate-x-1/2` and its `rtl:translate-x-1/2` override.
+    translate: { base: "-50% -50%", ":dir(rtl)": "50% -50%" },
     borderRadius: radius.full,
     backgroundColor: theme.primaryForeground,
   }),
