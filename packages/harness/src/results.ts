@@ -7,14 +7,16 @@ import { compareMedians, summarize } from "./stats.ts"
 import type { Ratio, Summary } from "./stats.ts"
 
 /**
- * StyleX twice: compiled by its Babel plugin, and by the Rust (SWC) compiler. Kirana three times:
- * as published, with dense class names (`src/targets.ts`), measured from the release that has
- * them, and at the release before (`kirana-previous`), beside Kirana alone in the `previous/<app>`
- * builds.
+ * StyleX twice: compiled by its Babel plugin, and by the Rust (SWC) compiler. Kirana as published,
+ * with the naming its release does not use by default (`src/targets.ts`): dense class names while
+ * they were opt-in (`kirana-dense`), hashed ones once dense names became the default
+ * (`kirana-hashed`); and at the release before (`kirana-previous`), beside Kirana alone in the
+ * `previous/<app>` builds.
  */
 export const TARGETS = [
   "kirana",
   "kirana-dense",
+  "kirana-hashed",
   "kirana-previous",
   "stylex",
   "stylex-swc",

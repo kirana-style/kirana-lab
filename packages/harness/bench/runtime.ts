@@ -36,6 +36,7 @@ import { chromium } from "playwright"
 import type { CDPSession, Page } from "playwright"
 
 import { VARIANTS } from "../src/targets.ts"
+import type { Naming } from "../src/targets.ts"
 
 const repository = path.resolve(
   new URL("..", import.meta.url).pathname,
@@ -49,8 +50,11 @@ export type RuntimeOptions = {
   elements?: number
   throttles?: number[]
   serve?: boolean
-  /** Also measure `kirana-dense`: the Kirana app built with dense class names. */
-  dense?: boolean
+  /**
+   * Also measure the Kirana app built with the naming its release does not use by default:
+   * `kirana-dense` or `kirana-hashed` (`src/targets.ts`).
+   */
+  naming?: Naming
   /**
    * Extra builds to measure beside the four, as `label=/path/to/app`.
    *
@@ -70,7 +74,7 @@ type Build = {
   env?: Record<string, string>
 }
 
-function buildsFor(app: string, also: readonly string[], dense = false) {
+function buildsFor(app: string, also: readonly string[], naming?: Naming) {
   const extra = also.map((value, index) => {
     const split = value.indexOf("=")
     if (split < 0)
@@ -90,12 +94,12 @@ function buildsFor(app: string, also: readonly string[], dense = false) {
       url: "http://localhost:3401",
       directory: path.join(repository, "apps", app),
     },
-    ...(dense
+    ...(naming
       ? {
-          "kirana-dense": {
+          [naming]: {
             url: "http://localhost:3410",
             directory: path.join(repository, "apps", app),
-            ...VARIANTS["kirana-dense"],
+            ...VARIANTS[naming],
           },
         }
       : {}),
@@ -386,9 +390,9 @@ export async function measureRuntime({
   throttles = [4, 6],
   serve: start = false,
   also = [],
-  dense = false,
+  naming,
 }: RuntimeOptions = {}): Promise<RuntimeResults> {
-  const builds = buildsFor(app, also, dense)
+  const builds = buildsFor(app, also, naming)
   const servers = start ? await serve(builds) : []
   const browser = await chromium.launch({
     channel: process.env.KIRANA_CHROME_CHANNEL ?? "chrome",
@@ -458,7 +462,7 @@ if (import.meta.main) {
     elements: Number(option("elements", "6000")),
     throttles: option("throttle", "4,6").split(",").map(Number),
     serve: args.includes("--serve"),
-    dense: args.includes("--dense"),
+    naming: (option("naming", "") || undefined) as Naming | undefined,
     also: args
       .map((argument, index) =>
         argument === "--also" ? args[index + 1] : undefined

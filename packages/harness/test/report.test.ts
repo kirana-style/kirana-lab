@@ -322,6 +322,39 @@ describe("renderReport", () => {
     expect(renderReport(results())).not.toContain("Dense names")
   })
 
+  it("reads a hashed build beside dense defaults as dense ÷ hashed too", () => {
+    const report = renderReport({
+      meta: { ...meta, kirana: "0.4.2" },
+      ...tabulate([
+        {
+          tier: "B",
+          corpus: "three-way/total",
+          scenario: "build",
+          metric: "cssGzip",
+          unit: "bytes",
+          labels: ["minified"],
+          samples: {
+            // Kirana as published writes dense names; the hashed build is larger.
+            kirana: [51_200, 51_200, 51_200],
+            "kirana-hashed": [64_000, 64_000, 64_000],
+            stylex: [62_800, 62_800, 62_800],
+          },
+        },
+      ]),
+    })
+    expect(report).toContain("## Dense names")
+    expect(report).toContain(
+      'Kirana as published, with dense names (the default since 0.4.0), over Kirana built with `names: "hashed"`'
+    )
+    expect(report).toContain("| All apps | CSS, gzip | 0.80× |")
+    expect(report).toContain("- **Kirana (hashed names)** is the Kirana corpus")
+    expect(report).toContain(
+      "| Measure | Kirana | Kirana (hashed names) | StyleX | Kirana ÷ StyleX |"
+    )
+    expect(report).not.toContain("Kirana ÷ Kirana")
+    expect(report).not.toContain("Kirana (dense names)")
+  })
+
   it("sets this release against the previous one in its own section, never as Kirana behind", () => {
     const session = (previous: Meta["previous"]): Results => ({
       meta: { ...meta, kirana: "0.3.5", previous },

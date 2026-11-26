@@ -37,6 +37,7 @@ import { chromium } from "playwright"
 import type { Browser, CDPSession, Page } from "playwright"
 
 import { VARIANTS } from "../src/targets.ts"
+import type { Naming } from "../src/targets.ts"
 
 const repository = path.resolve(import.meta.dirname, "../../..")
 
@@ -45,11 +46,17 @@ export const SIZES = [1000, 5000, 10000]
 
 const BUILDS = {
   kirana: { port: 3003, directory: "apps/large-dom" },
-  // The Kirana app built with dense class names, beside the hashed build (`src/targets.ts`).
+  // The Kirana app built with the naming its release does not use by default, beside the default
+  // build (`src/targets.ts`): one of the two a session, so they share a port.
   "kirana-dense": {
     port: 3013,
     directory: "apps/large-dom",
     ...VARIANTS["kirana-dense"]!,
+  },
+  "kirana-hashed": {
+    port: 3013,
+    directory: "apps/large-dom",
+    ...VARIANTS["kirana-hashed"]!,
   },
   stylex: { port: 3331, directory: "baselines/stylex/apps/large-dom" },
   "stylex-swc": {
@@ -100,8 +107,8 @@ export type LargeDomOptions = {
   rounds?: number
   throttle?: number
   serve?: boolean
-  /** Also measure `kirana-dense`. */
-  dense?: boolean
+  /** Also measure the other naming's build, `kirana-dense` or `kirana-hashed`. */
+  naming?: Naming
 }
 
 const url = (build: Build, rows: number) =>
@@ -296,10 +303,12 @@ export async function measureLargeDom({
   rounds = 20,
   throttle = 4,
   serve: start = false,
-  dense = false,
+  naming,
 }: LargeDomOptions = {}): Promise<LargeDomResults> {
   const builds = (Object.keys(BUILDS) as Build[]).filter(
-    (build) => dense || build !== "kirana-dense"
+    (build) =>
+      (build !== "kirana-dense" && build !== "kirana-hashed") ||
+      build === naming
   )
   const servers = start ? await serve(builds) : []
   const browser = await chromium.launch({
@@ -361,7 +370,7 @@ if (import.meta.main) {
     rounds: Number(option("rounds", "20")),
     throttle: Number(option("throttle", "4")),
     serve: args.includes("--serve"),
-    dense: args.includes("--dense"),
+    naming: (option("naming", "") || undefined) as Naming | undefined,
   })
   const out = option("json", "")
   const text = `${JSON.stringify(results, null, 2)}\n`

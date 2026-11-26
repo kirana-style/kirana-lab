@@ -9,14 +9,15 @@ anyone may quote it. Every rule here is written so that a reader can check it ag
 One application set, written three times: a demo page (`apps/web`), sixty-odd shadcn/ui blocks
 (`apps/blocks`) and a page per component (`apps/examples`).
 
-| Implementation            | Where                       | Styling                                                 |
-| ------------------------- | --------------------------- | ------------------------------------------------------- |
-| Kirana                    | the repository root         | `@kirana-style/*` from npm, at the pinned release       |
-| Kirana (dense names)      | the repository root         | the same, built with `names: "dense"` into `dist-dense` |
-| Kirana (previous release) | `baselines/kirana-previous` | the corpus copied, with the release before from npm     |
-| StyleX                    | `baselines/stylex`          | `@stylexjs/stylex` with `@stylexjs/unplugin` (Babel)    |
-| StyleX (SWC)              | `baselines/stylex-swc`      | the StyleX sources, compiled by `@stylexswc/unplugin`   |
-| Tailwind CSS              | `baselines/tailwind`        | `tailwindcss` 4 with `@tailwindcss/vite`                |
+| Implementation            | Where                       | Styling                                                   |
+| ------------------------- | --------------------------- | --------------------------------------------------------- |
+| Kirana                    | the repository root         | `@kirana-style/*` from npm, at the pinned release         |
+| Kirana (dense names)      | the repository root         | the same, built with `names: "dense"` into `dist-dense`   |
+| Kirana (hashed names)     | the repository root         | the same, built with `names: "hashed"` into `dist-hashed` |
+| Kirana (previous release) | `baselines/kirana-previous` | the corpus copied, with the release before from npm       |
+| StyleX                    | `baselines/stylex`          | `@stylexjs/stylex` with `@stylexjs/unplugin` (Babel)      |
+| StyleX (SWC)              | `baselines/stylex-swc`      | the StyleX sources, compiled by `@stylexswc/unplugin`     |
+| Tailwind CSS              | `baselines/tailwind`        | `tailwindcss` 4 with `@tailwindcss/vite`                  |
 
 The markup is the same in all of them; the conformance harness proves it by comparing the computed
 styles of every element, on every route, at three widths, in both colour schemes.
@@ -100,16 +101,22 @@ depends on which one a reader would pick.
 ### Kirana, with two ways of naming
 
 Kirana 0.2.3 added dense class names (`names: "dense"`): a production build replaces the hashes in
-its class names with short codes assigned from the whole build. It is opt-in, so the lab measures
-Kirana both ways, from the release that has it (`packages/harness/src/targets.ts`).
+its class names with short codes assigned from the whole build. Kirana 0.4.0 made them the default,
+and `names: "hashed"` keeps the structured names. The lab measures Kirana both ways: as published,
+and built with the naming its release does not use by default (`packages/harness/src/targets.ts`).
 
-- **Same apps, same sources.** `kirana-dense` is the repository root built a second time with
-  `KIRANA_LAB_NAMES=dense`. `packages/vite-config` reads it, passes `names: "dense"` and writes the
-  build to `dist-dense`, so the two builds sit side by side and interleave like any two targets.
-- **Conformance.** The dense build is compared with the hashed one, with no exceptions: both compile
-  the same sources, so any difference is the renaming's.
+- **Which build is the second.** From 0.4.0, `kirana-hashed`, built with `names: "hashed"`. From
+  0.2.3 to 0.3.x, `kirana-dense`, built with `names: "dense"`. A session measures one of the two:
+  `kirana-dense` beside a release that already writes dense names would be the same build twice.
+- **Same apps, same sources.** Either is the repository root built a second time with
+  `KIRANA_LAB_NAMES` set to `hashed` or `dense`. `packages/vite-config` reads it, passes it as
+  `names` and writes the build to `dist-hashed` or `dist-dense`, so the two builds sit side by side
+  and interleave like any two targets.
+- **Conformance.** The second build is compared with Kirana as published, with no exceptions: both
+  compile the same sources, so any difference is the renaming's.
 - **How it reads.** The tables show its medians beside the others, and its ratios have a section of
-  their own, dense ÷ hashed, so they never count as Kirana being behind.
+  their own, always dense ÷ hashed whichever build is the default, so they never count as Kirana
+  being behind.
 
 ### Kirana against its previous release
 
