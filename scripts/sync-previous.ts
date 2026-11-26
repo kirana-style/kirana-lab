@@ -41,6 +41,7 @@ const SKIPPED = new Set([
   "node_modules",
   "dist",
   "dist-dense",
+  "dist-hashed",
   ".tanstack",
   ".output",
   ".vinxi",

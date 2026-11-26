@@ -1,8 +1,9 @@
 /**
  * Runs the conformance comparisons for one app: the Kirana build against the StyleX port and against
  * the Tailwind original, and the StyleX port compiled by SWC against the same port compiled by Babel
- * (packages/harness/conformance/README.md). With `--dense`, also the Kirana build with dense class
- * names against the hashed one (`src/targets.ts`), on ports 3020–3024 (`KIRANA_DENSE_URL`).
+ * (packages/harness/conformance/README.md). With `--naming kirana-dense` or `--naming kirana-hashed`,
+ * also the Kirana build with that naming against the default one (`src/targets.ts`), on ports
+ * 3020–3024 (`KIRANA_NAMING_URL`).
  *
  *   bun conformance/run.ts [--app web|blocks|examples|large-dom|scale-curve] [--serve] [--shard 1/3] [--states] [--motion]
  *
@@ -28,7 +29,7 @@
  * The StyleX comparison treats a difference where Kirana matches the Tailwind original as a
  * correction, and the Tailwind comparison treats one the StyleX port shares as inherited. The SWC
  * comparison has no arbiter: both compile the same sources, so any difference is the compiler's;
- * nor has the dense one, whose builds differ only in their class names.
+ * nor has the naming one, whose builds differ only in their class names.
  */
 import { spawn, spawnSync } from "node:child_process"
 import type { ChildProcess } from "node:child_process"
@@ -36,6 +37,7 @@ import { existsSync } from "node:fs"
 import path from "node:path"
 
 import { VARIANTS } from "../src/targets.ts"
+import type { Naming } from "../src/targets.ts"
 
 const APPS = {
   web: 0,
@@ -69,7 +71,14 @@ if (!(app in APPS)) {
 }
 const offset = APPS[app]
 const repository = path.resolve(import.meta.dirname, "../../..")
-const dense = args.includes("--dense")
+const namingAt = args.indexOf("--naming")
+const naming = (namingAt < 0 ? undefined : args[namingAt + 1]) as
+  | Naming
+  | undefined
+if (naming !== undefined && !(naming in VARIANTS)) {
+  console.error("--naming must be kirana-dense or kirana-hashed")
+  process.exit(2)
+}
 type Build = {
   url: string
   directory: string
@@ -111,22 +120,26 @@ const builds: Record<string, Build> = {
       app
     ),
   },
-  ...(dense
+  ...(naming
     ? {
-        "kirana-dense": {
+        [naming]: {
           url:
-            process.env.KIRANA_DENSE_URL ?? `http://localhost:${3020 + offset}`,
+            process.env.KIRANA_NAMING_URL ??
+            `http://localhost:${3020 + offset}`,
           directory: path.join(repository, "apps", app),
-          ...VARIANTS["kirana-dense"],
+          ...VARIANTS[naming],
         },
       }
     : {}),
 }
 
 // Options this script consumes; everything else goes to compare.ts.
-const own = new Set(["--app", "--serve", "--dense"])
+const own = new Set(["--app", "--serve", "--naming"])
 const passed = args.filter(
-  (arg, index) => !own.has(arg) && args[index - 1] !== "--app"
+  (arg, index) =>
+    !own.has(arg) &&
+    args[index - 1] !== "--app" &&
+    args[index - 1] !== "--naming"
 )
 
 function stop(servers: ChildProcess[]) {
@@ -195,10 +208,8 @@ for (const [label, actual, expected, arbiter] of [
     ["--port-of", builds.stylex!.url],
   ],
   ["stylex-swc", builds["stylex-swc"]!.url, builds.stylex!.url, []],
-  ...(dense
-    ? ([
-        ["kirana-dense", builds["kirana-dense"]!.url, builds.kirana!.url, []],
-      ] as const)
+  ...(naming
+    ? ([[naming, builds[naming]!.url, builds.kirana!.url, []]] as const)
     : []),
 ] as const) {
   const shard = option("shard")?.replace("/", "-of-")

@@ -97,6 +97,7 @@ function editorTable(results: Results): { lines: string[]; missed: string[] } {
 const NAMES: Record<Target, string> = {
   kirana: "Kirana",
   "kirana-dense": "Kirana (dense names)",
+  "kirana-hashed": "Kirana (hashed names)",
   "kirana-previous": "Kirana (previous release)",
   stylex: "StyleX",
   "stylex-swc": "StyleX (SWC)",
@@ -166,14 +167,20 @@ export function formatRatio(comparison: Comparison | undefined): string {
   return `${shown}${interval} ${word}`
 }
 
+/** Kirana built with its other naming (`src/targets.ts`): never another tool. */
+const isNaming = (target: Target) =>
+  target === "kirana-dense" || target === "kirana-hashed"
+
 /**
  * What dense names change, as dense ÷ hashed: every size the build and the large-dom page measure,
- * on the corpus totals and each large-dom size, so the effect reads at a glance.
+ * on the corpus totals and each large-dom size, so the effect reads at a glance. Against
+ * `kirana-hashed` (dense names the default) Kirana's ratio is already dense ÷ hashed; against
+ * `kirana-dense` (dense names opt-in) it is hashed ÷ dense, and is turned round.
  */
 function denseSection(results: Results): string[] {
   const versus = results.comparisons.filter(
     (comparison) =>
-      comparison.against === "kirana-dense" &&
+      isNaming(comparison.against) &&
       comparison.scenario === "build" &&
       (comparison.corpus.endsWith("/total") ||
         comparison.corpus.startsWith("large-dom") ||
@@ -182,19 +189,27 @@ function denseSection(results: Results): string[] {
       comparison.metric !== "build"
   )
   if (versus.length === 0) return []
+  const hashed = versus.some(
+    (comparison) => comparison.against === "kirana-hashed"
+  )
   return [
     "## Dense names",
     "",
-    'Kirana built with `names: "dense"` over Kirana as published: below 1 is smaller with dense names.',
+    hashed
+      ? 'Kirana as published, with dense names (the default since 0.4.0), over Kirana built with `names: "hashed"`: below 1 is smaller with dense names.'
+      : 'Kirana built with `names: "dense"` over Kirana as published: below 1 is smaller with dense names.',
     "",
     "| Corpus | Measure | Dense ÷ hashed |",
     "| --- | --- | --- |",
     ...versus.map((comparison) => {
-      const inverse = {
-        ratio: 1 / comparison.ratio,
-        low: 1 / comparison.high,
-        high: 1 / comparison.low,
-      }
+      const inverse =
+        comparison.against === "kirana-hashed"
+          ? comparison
+          : {
+              ratio: 1 / comparison.ratio,
+              low: 1 / comparison.high,
+              high: 1 / comparison.low,
+            }
       const [ratio, low, high] = ratioParts(inverse)
       return `| ${corpusName(comparison.corpus)} | ${MEASURES[comparison.metric]?.label ?? comparison.metric} | ${ratio}×${inverse.low === inverse.high ? "" : ` <sub>${low}–${high}</sub>`} |`
     }),
@@ -299,9 +314,9 @@ function table(
     rows.has(`${key(corpus, scenario, metric)}|kirana`)
   )
   if (metrics.length === 0) return []
-  // The dense build's ratio reads the other way round, so it is in its own section.
+  // The other naming's ratio is dense ÷ hashed, so it is in its own section.
   const others = shown.filter(
-    (target) => target !== "kirana" && target !== "kirana-dense"
+    (target) => target !== "kirana" && !isNaming(target)
   )
   return [
     `| Measure | ${shown.map((target) => NAMES[target]).join(" | ")} | ${others.map((target) => `Kirana ÷ ${NAMES[target]}`).join(" | ")} |`,
@@ -378,12 +393,12 @@ export function renderReport(results: Results): string {
     ([, state]) => state !== "passed"
   )
   // A loss on the corpus total is listed once; an app's own loss only when the total has none.
-  // Against its own dense build, Kirana "higher" means dense names did better: not a loss. Its
-  // previous release is no other tool: what changed since is in its own section.
+  // Against its own build with the other naming, Kirana "higher" is the naming's effect: not a
+  // loss. Its previous release is no other tool: what changed since is in its own section.
   const judged = results.comparisons.filter(
     (comparison) =>
       comparison.verdict === "higher" &&
-      comparison.against !== "kirana-dense" &&
+      !isNaming(comparison.against) &&
       comparison.against !== "kirana-previous" &&
       MEASURES[comparison.metric]?.judged !== false
   )
@@ -436,7 +451,7 @@ export function renderReport(results: Results): string {
     OTHERS.filter(
       (target) =>
         measured.has(target) &&
-        target !== "kirana-dense" &&
+        !isNaming(target) &&
         target !== "kirana-previous"
     ).map((target) => NAMES[target])
   )
@@ -535,6 +550,11 @@ export function renderReport(results: Results): string {
     ...(measured.has("kirana-dense")
       ? [
           '- **Kirana (dense names)** is the Kirana corpus built with `names: "dense"`: the same apps and sources, into its own folder, with conformance comparing it to the hashed build. Its ratios are in **Dense names**, as dense ÷ hashed.',
+        ]
+      : []),
+    ...(measured.has("kirana-hashed")
+      ? [
+          '- **Kirana (hashed names)** is the Kirana corpus built with `names: "hashed"`: the same apps and sources, into its own folder, with conformance comparing it to Kirana as published, whose production builds write dense names by default since 0.4.0. Its ratios are in **Dense names**, as dense ÷ hashed.',
         ]
       : []),
     ...(measured.has("kirana-previous") && meta.previous

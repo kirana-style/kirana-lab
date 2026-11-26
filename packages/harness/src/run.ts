@@ -17,12 +17,13 @@
  *                  [--apps web,blocks,examples] [--runtime-app web]
  *                  [--large-dom-sizes 1000,5000] [--large-dom-throttle 4] [--no-large-dom]
  *                  [--scale-curve-sizes 100,1000,10000] [--no-scale-curve | --only-scale-curve]
- *                  [--no-editor] [--no-conformance] [--no-runtime] [--no-dense]
+ *                  [--no-editor] [--no-conformance] [--no-runtime] [--no-naming]
  *                  [--only-previous | --only-conformance]
  *                  [--out <folder>]
  *
- * `kirana-dense`, the corpus built with dense class names (`src/targets.ts`), is measured beside
- * `kirana` when the release has them; `--no-dense` leaves it out.
+ * The corpus built with the naming the release does not use by default (`src/targets.ts`):
+ * `kirana-hashed` from the release that made dense names the default, `kirana-dense` while they
+ * were opt-in, is measured beside `kirana`; `--no-naming` leaves it out.
  *
  * `--only-previous` builds the three apps with this release and with the one before
  * (`kirana-previous`, prepared by `scripts/sync-previous.ts`), interleaved, and nothing else: this
@@ -63,7 +64,7 @@ import {
 } from "./meta.ts"
 import { renderReport } from "./report.ts"
 import { tabulate } from "./results.ts"
-import { PREVIOUS, sessionTargets as targetsOf } from "./targets.ts"
+import { PREVIOUS, namingIn, sessionTargets as targetsOf } from "./targets.ts"
 import type { Cell, Meta, Results, Target } from "./results.ts"
 
 const args = process.argv.slice(2)
@@ -101,8 +102,9 @@ const editor = !only && !flag("no-editor")
 const started = new Date()
 const { kirana, targets } = versions()
 /** The targets every step of the session measures. */
-const sessionTargets = targetsOf(kirana, { dense: !flag("no-dense") })
-const dense = !onlyPrevious && sessionTargets.includes("kirana-dense")
+const sessionTargets = targetsOf(kirana, { naming: !flag("no-naming") })
+/** The other naming's target, measured beside `kirana` in every step but the previous release's. */
+const naming = onlyPrevious ? undefined : namingIn(sessionTargets)
 /** The previous release `scripts/sync-previous.ts` prepared, or why it holds none. */
 const previous = onlyPrevious ? prepared() : undefined
 if (onlyPrevious && !previous)
@@ -119,7 +121,7 @@ const buildTargets: Target[] = !onlyPrevious
     ? ["kirana", "kirana-previous"]
     : []
 const corpus = onlyPrevious ? "previous" : "three-way"
-const denseFlag = dense ? ["--dense"] : []
+const namingFlag = naming ? ["--naming", naming] : []
 const { hardware, runner, run } = machine()
 const out = path.resolve(
   ROOT,
@@ -132,6 +134,7 @@ const out = path.resolve(
 const roots: Record<Target, string> = {
   kirana: ROOT,
   "kirana-dense": ROOT,
+  "kirana-hashed": ROOT,
   "kirana-previous": path.join(ROOT, PREVIOUS),
   stylex: path.join(ROOT, "baselines/stylex"),
   "stylex-swc": path.join(ROOT, "baselines/stylex-swc"),
@@ -208,7 +211,7 @@ if (!onlyPrevious && !flag("no-conformance")) {
         "--app",
         app,
         "--serve",
-        ...denseFlag,
+        ...namingFlag,
       ],
       { stdio: "inherit" }
     )
@@ -227,7 +230,7 @@ if (runtime) {
     rounds: runtimeRounds,
     throttles,
     serve: true,
-    dense,
+    naming,
   })
   chrome = browser.chrome
   const units: Record<keyof RuntimeSamples, string> = {
@@ -295,7 +298,7 @@ if (largeDom) {
         "--app",
         "large-dom",
         "--serve",
-        ...denseFlag,
+        ...namingFlag,
       ],
       { stdio: "inherit" }
     )
@@ -311,7 +314,7 @@ if (largeDom) {
       rounds: runtimeRounds,
       throttle: largeDomThrottle,
       serve: true,
-      dense,
+      naming,
     })
     chrome ??= measured.chrome
     const units: Record<keyof LargeDomSamples, string> = {

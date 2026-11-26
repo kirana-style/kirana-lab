@@ -14,6 +14,7 @@ import { SIZES, generate } from "../../../scripts/scale-curve.ts"
 import { BUILD_METRICS, measureBuilds } from "../bench/slice.ts"
 import type { BuildMetric } from "../bench/slice.ts"
 import type { Cell, Target } from "./results.ts"
+import { namingIn } from "./targets.ts"
 
 export { SIZES }
 
@@ -80,7 +81,7 @@ export function measureScaleCurve({
         "--app",
         "scale-curve",
         "--serve",
-        ...(targets.includes("kirana-dense") ? ["--dense"] : []),
+        ...(namingIn(targets) ? ["--naming", namingIn(targets)!] : []),
       ],
       { stdio: "inherit" }
     )

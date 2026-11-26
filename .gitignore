@@ -2,8 +2,9 @@ node_modules
 .DS_Store
 dist
 dist-ssr
-# The harness's kirana-dense build (packages/harness/src/targets.ts).
+# The harness's kirana-dense and kirana-hashed builds (packages/harness/src/targets.ts).
 dist-dense
+dist-hashed
 # The corpus at the previous Kirana release (scripts/sync-previous.ts).
 baselines/kirana-previous/
 *.local
