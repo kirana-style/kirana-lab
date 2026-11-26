@@ -66,7 +66,8 @@ const styles = stylex.create({
 
   button: {
     position: "absolute",
-    insetInlineStart: "50%",
+    // Physical, because the translate that centres it has no logical form.
+    left: "50%",
     borderColor: theme.border,
     backgroundColor: { default: theme.background, ":hover": theme.muted },
     color: { default: theme.foreground, ":hover": theme.foreground },

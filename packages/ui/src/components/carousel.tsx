@@ -45,7 +45,9 @@ const styles = {
   }),
   previousVertical: css({
     top: `calc(${spacing[12]} * -1)`,
-    insetInlineStart: "50%",
+    // Centred across the carousel: physical, like the original's `left-1/2`,
+    // because the translate that pulls it back has no logical form.
+    left: "50%",
     translate: "-50% 0",
     rotate: "90deg",
   }),
@@ -56,7 +58,9 @@ const styles = {
   }),
   nextVertical: css({
     bottom: `calc(${spacing[12]} * -1)`,
-    insetInlineStart: "50%",
+    // Centred across the carousel: physical, like the original's `left-1/2`,
+    // because the translate that pulls it back has no logical form.
+    left: "50%",
     translate: "-50% 0",
     rotate: "90deg",
   }),

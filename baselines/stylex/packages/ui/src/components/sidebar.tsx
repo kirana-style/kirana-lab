@@ -161,9 +161,10 @@ const styles = stylex.create({
     width: spacing[4],
     transitionProperty: "all",
     transitionTimingFunction: "linear",
-    // Centred on the edge it straddles, in either writing direction.
+    // Centred on the edge it straddles. Physical sides, like the original's
+    // `-right-4` and `left-0`, because the translate has no logical form.
     translate: "-50% 0",
-    insetInlineEnd: {
+    right: {
       default: null,
       [stylex.when.ancestor('[data-side="left"]', sidebarMarker)]:
         `calc(${spacing[4]} * -1)`,
@@ -172,7 +173,7 @@ const styles = stylex.create({
         sidebarMarker
       )]: null,
     },
-    insetInlineStart: {
+    left: {
       default: null,
       [stylex.when.ancestor('[data-side="right"]', sidebarMarker)]: 0,
     },
