@@ -61,6 +61,16 @@ const styles = stylex.create({
         [stylex.when.ancestor('[data-collapsible="icon"]', sidebarMarker)]: 0,
       },
     },
+    // The button's own end padding is a longhand, which outranks the shorthand above: named too,
+    // so `md:p-0` reaches the end side as it does in the original.
+    paddingInlineEnd: {
+      default: spacing["2"],
+      [stylex.when.ancestor('[data-collapsible="icon"]', sidebarMarker)]: 0,
+      [breakpoint.md]: {
+        default: 0,
+        [stylex.when.ancestor('[data-collapsible="icon"]', sidebarMarker)]: 0,
+      },
+    },
     // The menu button's own states are restated alongside the open menu:
     // an sx value replaces the whole property.
     backgroundColor: {

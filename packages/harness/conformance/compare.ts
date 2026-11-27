@@ -322,8 +322,20 @@ async function cached<T>(
   return value
 }
 
+/**
+ * How many elements' readings one call brings back. From Chrome 158, a result of between 64 and
+ * 100 MB never arrives (Chrome 154 returned 300 MB), and Playwright reports it as a navigation
+ * ("Execution context was destroyed"): the scale curve's page at 10,000 components reads about
+ * 30,000 elements, and read in one call it failed every bench session from Chrome 158 on.
+ */
+const SNAPSHOT_SLICE = 2000
+
+/**
+ * Every `[data-slot]` element's computed style, read in one pass so both implementations are read
+ * at the same moment, kept in the page and brought back in slices of `SNAPSHOT_SLICE`.
+ */
 async function snapshot(page: Page): Promise<Snapshot[]> {
-  return page.evaluate(
+  const count = await page.evaluate(
     ({ properties, pseudoProperties, group }) => {
       // Finite animations jump to their end state; endless ones (a spinner) to their first frame,
       // so both implementations are read at the same moment.
@@ -367,31 +379,33 @@ async function snapshot(page: Page): Promise<Snapshot[]> {
           labels.set(element, n > 1 ? `${title} (${n})` : title)
         }
       }
-      return [...document.querySelectorAll<HTMLElement>("[data-slot]")].map(
-        (element) => {
-          const owner = group ? element.closest(group) : null
-          const prefix = owner ? `${labels.get(owner)} › ` : ""
-          const base = `${prefix}${element.tagName.toLowerCase()}[data-slot="${element.dataset.slot}"]`
-          const count = (counts.get(base) ?? 0) + 1
-          counts.set(base, count)
-          const before = getComputedStyle(element, "::before")
-          const after = getComputedStyle(element, "::after")
-          const rect = element.getBoundingClientRect()
-          return {
-            key: `${base}#${count}`,
-            props: read(getComputedStyle(element), properties),
-            box: { x: rect.x, width: rect.width },
-            before:
-              before.content !== "none"
-                ? read(before, pseudoProperties)
-                : undefined,
-            after:
-              after.content !== "none"
-                ? read(after, pseudoProperties)
-                : undefined,
-          }
+      const entries = [
+        ...document.querySelectorAll<HTMLElement>("[data-slot]"),
+      ].map((element) => {
+        const owner = group ? element.closest(group) : null
+        const prefix = owner ? `${labels.get(owner)} › ` : ""
+        const base = `${prefix}${element.tagName.toLowerCase()}[data-slot="${element.dataset.slot}"]`
+        const count = (counts.get(base) ?? 0) + 1
+        counts.set(base, count)
+        const before = getComputedStyle(element, "::before")
+        const after = getComputedStyle(element, "::after")
+        const rect = element.getBoundingClientRect()
+        return {
+          key: `${base}#${count}`,
+          props: read(getComputedStyle(element), properties),
+          box: { x: rect.x, width: rect.width },
+          before:
+            before.content !== "none"
+              ? read(before, pseudoProperties)
+              : undefined,
+          after:
+            after.content !== "none"
+              ? read(after, pseudoProperties)
+              : undefined,
         }
-      )
+      })
+      ;(window as unknown as { __snapshot: unknown[] }).__snapshot = entries
+      return entries.length
     },
     {
       properties: PROPERTIES,
@@ -399,6 +413,22 @@ async function snapshot(page: Page): Promise<Snapshot[]> {
       group: process.argv.includes("--group") ? argument("group") : null,
     }
   )
+  const snapshots: Snapshot[] = []
+  for (let start = 0; start < count; start += SNAPSHOT_SLICE)
+    snapshots.push(
+      ...(await page.evaluate(
+        ([from, to]) =>
+          (window as unknown as { __snapshot: Snapshot[] }).__snapshot.slice(
+            from,
+            to
+          ),
+        [start, start + SNAPSHOT_SLICE] as const
+      ))
+    )
+  await page.evaluate(
+    () => delete (window as unknown as { __snapshot?: unknown }).__snapshot
+  )
+  return snapshots
 }
 
 /**

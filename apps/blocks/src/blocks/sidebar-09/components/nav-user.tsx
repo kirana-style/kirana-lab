@@ -59,6 +59,16 @@ const styles = {
         [sidebarMarker.within('[data-collapsible="icon"]')]: 0,
       },
     },
+    // The button's own end padding is a longhand, which outranks the shorthand above: named too,
+    // so `md:p-0` reaches the end side as it does in the original.
+    paddingInlineEnd: {
+      base: spacing["2"],
+      [sidebarMarker.within('[data-collapsible="icon"]')]: 0,
+      [breakpoint.md]: {
+        base: 0,
+        [sidebarMarker.within('[data-collapsible="icon"]')]: 0,
+      },
+    },
     // The open menu's own fill; the button keeps its hover, active and open
     // states, which merge in beside it.
     backgroundColor: {
